@@ -4302,9 +4302,10 @@ function initLogo() {
    ═══════════════════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    SplashScreen.update(5, t('splash.init'));
-    await I18N.init();
-    SplashScreen.update(10, t('splash.theme'));
+    // ✅ Initialiser i18n EN PREMIER (avant tout appel à t())
+    SplashScreen.update(5, 'Initialisation...');
+    await I18N.init();                          // ← I18N chargé
+    SplashScreen.update(10, t('splash.theme')); // ← maintenant t() fonctionne
 
     const langToggle = document.getElementById('langToggle');
     if (langToggle) {
