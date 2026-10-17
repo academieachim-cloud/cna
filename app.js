@@ -1,41 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   CAHIER NUMÉRIQUE ACHIM v4.0
+   CAHIER NUMÉRIQUE ACHIM v4.1
    Application universelle, frugale et résiliente
-   ─────────────────────────────────────────────────────────────────────
-   Sections :
-   1.  Config institution + niveaux + matières
-   2.  État global
-   3.  Utilitaires
-   4.  Base de données (IndexedDB)
-   5.  Thème
-   6.  Niveaux scolaires
-   7.  Profil élève
-   8.  Matières
-   9.  Voix (synthèse vocale)
-   10. Chargement PDF / images
-   11. Rendu des pages
-   12. Outils de dessin
-   13. Collage (clips)
-   14. Découpage (scissors + lasso)
-   15. Textes éditables
-   16. Outils pédagogiques (règle, timer, etc.)
-   17. Export PDF
-   18. Email
-   19. Historique / sauvegarde
-   20. URL
-   21. Bibliothèque
-   22. Partage
-   23. Verrou parental
-   24. Scan intelligent
-   25. Recherche PDF
-   26. Miniatures
-   27. Mode présentation
-   28. PWA
-   29. Raccourcis clavier
-   30. Initialisation
+   - i18n complet
+   - Corrections de syntaxe (guide, history, url, library)
+   - Traductions des modales, toasts, prompts
    ═══════════════════════════════════════════════════════════════════════ */
 
 'use strict';
+
 /* ═══════════════════════════════════════════════════════════
    INTERNATIONALISATION (i18n)
    ═══════════════════════════════════════════════════════════ */
@@ -45,32 +17,20 @@ const I18N = {
   currentLang: 'fr',
   translations: {},
   cache: {},
-  langNames: {
-    fr: 'Français',
-    ht: 'Kreyòl',
-    en: 'English',
-    es: 'Español'
-  },
-  langFlags: {
-    fr: '🇫🇷',
-    ht: '🇭🇹',
-    en: '🇬🇧',
-    es: '🇪🇸'
-  },
+  langNames: { fr: 'Français', ht: 'Kreyòl', en: 'English', es: 'Español' },
+  langFlags: { fr: '🇫🇷', ht: '🇭🇹', en: '🇬🇧', es: '🇪🇸' },
 
   async init() {
     const saved = localStorage.getItem('cahier-achim-lang');
     let lang = this.defaultLang;
-    
     if (saved && this.availableLangs.includes(saved)) {
       lang = saved;
     } else {
       const browserLang = (navigator.language || 'fr').substring(0, 2);
-      if (this.availableLangs.includes(browserLang)) {
-        lang = browserLang;
-      }
+      if (this.availableLangs.includes(browserLang)) lang = browserLang;
     }
-    
+    // Toujours charger fr en fallback
+    this.cache.fr = await this.load('fr');
     await this.setLang(lang);
     console.log(`🌐 Langue : ${lang}`);
   },
@@ -78,7 +38,7 @@ const I18N = {
   async load(lang) {
     if (this.cache[lang]) return this.cache[lang];
     try {
-      const response = await fetch(`locales/${lang}.json`);
+      const response = await fetch(`./${lang}.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       this.cache[lang] = data;
@@ -96,24 +56,15 @@ const I18N = {
     this.translations = await this.load(lang);
     localStorage.setItem('cahier-achim-lang', lang);
     document.documentElement.lang = lang;
-   this.apply();
-  this.updateLangButton();
-  // Re-render les modales ouvertes (optionnel)
-  document.querySelectorAll('.modal').forEach(m => {
-    // Si une modale est ouverte, on peut la fermer pour éviter du texte mixte
-    // m.remove();
-  });
-  window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
-
-     
+    this.apply();
+    this.updateLangButton();
+    window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
   },
 
-     t(key, vars = {}) {
+  t(key, vars = {}) {
     let text = this.translations[key];
     if (!text) {
-      if (this.currentLang !== 'fr' && this.cache.fr) {
-        text = this.cache.fr[key];
-      }
+      if (this.currentLang !== 'fr' && this.cache.fr) text = this.cache.fr[key];
       if (!text) {
         console.warn(`[i18n] Clé manquante : "${key}" (lang: ${this.currentLang})`);
         return key;
@@ -123,56 +74,49 @@ const I18N = {
   },
 
   apply() {
-    // Textes normaux
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.dataset.i18n;
       const text = this.t(key);
-      if (text && text !== key) {
-        el.textContent = text;
-      }
+      if (text && text !== key) el.textContent = text;
     });
-
-    // Placeholders
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.dataset.i18nPlaceholder;
       const text = this.t(key);
       if (text) el.placeholder = text;
     });
-
-    // Titres (tooltips)
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       const key = el.dataset.i18nTitle;
       const text = this.t(key);
       if (text) el.title = text;
     });
-
-    // ARIA labels
     document.querySelectorAll('[data-i18n-aria]').forEach(el => {
       const key = el.dataset.i18nAria;
       const text = this.t(key);
       if (text) el.setAttribute('aria-label', text);
     });
-
-    // Attribut content pour meta
     document.querySelectorAll('[data-i18n-content]').forEach(el => {
       const key = el.dataset.i18nContent;
       const text = this.t(key);
       if (text) el.setAttribute('content', text);
     });
-  // Re-générer les éléments dynamiques
-  if (typeof renderStickers === 'function') renderStickers();
-  if (typeof updateSubjectBadge === 'function') updateSubjectBadge();
-  if (typeof updateProfileBtn === 'function') updateProfileBtn();
-  if (typeof applyLevel === 'function') applyLevel(getCurrentLevel());
-  if (typeof initToolButtons === 'function') {
-    // Réinitialiser les boutons d'outils avec les nouveaux titres
-    initToolButtons();
-    // Re-appliquer la classe active
-    const active = state.tool;
-    Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
-    if (toolButtons[active]) toolButtons[active].classList.add('active');
-  }
-},
+
+    // Re-render dynamique
+    try {
+      if (typeof renderStickers === 'function') renderStickers();
+      if (typeof updateSubjectBadge === 'function') updateSubjectBadge();
+      if (typeof updateProfileBtn === 'function') updateProfileBtn();
+      if (typeof applyLevel === 'function') applyLevel(getCurrentLevel());
+      if (typeof initToolButtons === 'function') {
+        initToolButtons();
+        if (typeof state !== 'undefined' && state.tool && typeof toolButtons !== 'undefined' && toolButtons[state.tool]) {
+          Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
+          toolButtons[state.tool].classList.add('active');
+        }
+      }
+    } catch (e) {
+      console.warn('[i18n] Erreur re-render :', e);
+    }
+  },
 
   updateLangButton() {
     const btn = document.getElementById('langToggle');
@@ -186,9 +130,7 @@ const I18N = {
     const idx = this.availableLangs.indexOf(this.currentLang);
     const nextLang = this.availableLangs[(idx + 1) % this.availableLangs.length];
     await this.setLang(nextLang);
-    if (typeof showToast === 'function') {
-      showToast(this.langFlags[nextLang], this.t('language.changed'));
-    }
+    if (typeof showToast === 'function') showToast(this.langFlags[nextLang], this.t('language.changed'));
   },
 
   openPicker() {
@@ -196,25 +138,19 @@ const I18N = {
     modal.className = 'modal';
     modal.setAttribute('role', 'dialog');
     modal.setAttribute('aria-modal', 'true');
-    
     const cards = this.availableLangs.map(lang => {
       const active = lang === this.currentLang ? 'active' : '';
-      return `
-        <div class="lang-card ${active}" data-lang="${lang}">
-          <span class="lang-flag">${this.langFlags[lang]}</span>
-          <span class="lang-name">${this.langNames[lang]}</span>
-        </div>
-      `;
+      return `<div class="lang-card ${active}" data-lang="${lang}">
+        <span class="lang-flag">${this.langFlags[lang]}</span>
+        <span class="lang-name">${this.langNames[lang]}</span>
+      </div>`;
     }).join('');
-
     modal.innerHTML = `
       <div class="modal-content" style="max-width:520px">
         <h2 style="margin-top:0;color:var(--achim-bleu)">🌐 ${this.t('language.select')}</h2>
         <div class="lang-grid">${cards}</div>
         <button class="modal-close" style="width:100%;margin-top:16px">${this.t('action.close')}</button>
-      </div>
-    `;
-
+      </div>`;
     modal.querySelectorAll('.lang-card').forEach(card => {
       card.onclick = async () => {
         await this.setLang(card.dataset.lang);
@@ -224,16 +160,15 @@ const I18N = {
         }
       };
     });
-
     modal.querySelector('.modal-close').onclick = () => modal.remove();
     document.body.appendChild(modal);
   }
 };
 
-// Raccourci global
 function t(key, vars = {}) { return I18N.t(key, vars); }
+
 /* ═══════════════════════════════════════════════════════════
-   SPLASH SCREEN — Contrôle de l'écran de chargement
+   SPLASH SCREEN
    ═══════════════════════════════════════════════════════════ */
 const SplashScreen = {
   element: null,
@@ -253,9 +188,7 @@ const SplashScreen = {
     const clamped = Math.max(0, Math.min(100, percent));
     this.progressBar.style.width = clamped + '%';
     const progressContainer = this.element?.querySelector('.splash-progress');
-    if (progressContainer) {
-      progressContainer.setAttribute('aria-valuenow', Math.round(clamped));
-    }
+    if (progressContainer) progressContainer.setAttribute('aria-valuenow', Math.round(clamped));
     if (status && this.statusText) {
       this.statusText.style.opacity = '0';
       setTimeout(() => {
@@ -269,9 +202,7 @@ const SplashScreen = {
     if (!this.element) return;
     const elapsed = Date.now() - this.startTime;
     const remaining = Math.max(0, this.minDisplayTime - elapsed);
-    if (remaining > 0) {
-      await new Promise(r => setTimeout(r, remaining));
-    }
+    if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
     this.update(100, 'Prêt !');
     await new Promise(r => setTimeout(r, 300));
     const empty = document.getElementById('empty');
@@ -279,15 +210,11 @@ const SplashScreen = {
       empty.style.opacity = '0';
       empty.style.transition = 'opacity 0.6s ease-out';
       void empty.offsetHeight;
-      requestAnimationFrame(() => {
-        empty.style.opacity = '1';
-      });
+      requestAnimationFrame(() => { empty.style.opacity = '1'; });
     }
     this.element.classList.add('hidden');
     setTimeout(() => {
-      if (this.element && this.element.parentNode) {
-        this.element.remove();
-      }
+      if (this.element && this.element.parentNode) this.element.remove();
     }, 600);
   },
 
@@ -305,16 +232,17 @@ const SplashScreen = {
       this.statusText.parentNode.appendChild(btn);
     }
   }
-};  // ⚡ ACC O LADE + POINT-VIRGULE (c'est ce qui manquait)
+};
 
 SplashScreen.init();
+
 /* ═══════════════════════════════════════════════════════════
    1. CONFIG INSTITUTION
    ═══════════════════════════════════════════════════════════ */
 window.INSTITUTION = {
   nom: 'École ACHIM',
   produit: 'Cahier Numérique ACHIM',
-  version: '4.0',
+  version: '4.1',
   anneeScolaire: '2025-2026',
   email: 'academie.achim@gmail.com',
   siteWeb: 'https://academieachim-cloud.github.io/cahier-achim/',
@@ -429,6 +357,7 @@ const DRAW_TOOLS = [
   { id: 'toolCollage', tool: 'collage', emoji: '✂️', titleKey: 'toolbar.collage', cssClass: 'collage' },
   { id: 'btnTextSelect', tool: 'textSelect', emoji: '🗣️', titleKey: 'toolbar.listen', cssClass: 'text-select' }
 ];
+
 /* ═══════════════════════════════════════════════════════════
    3. UTILITAIRES
    ═══════════════════════════════════════════════════════════ */
@@ -449,13 +378,18 @@ function downloadBlob(blob, filename) {
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
 }
-function setLoading(show, text = 'Chargement...') {
+function setLoading(show, text) {
   const loading = document.getElementById('loading');
   const loadingText = document.getElementById('loadingText');
   const progressBar = document.getElementById('progressBar');
   if (!loading) return;
-  if (show) { loadingText.textContent = text; loading.classList.add('show'); }
-  else { loading.classList.remove('show'); if (progressBar) progressBar.style.width = '0%'; }
+  if (show) {
+    loadingText.textContent = text || t('message.loading');
+    loading.classList.add('show');
+  } else {
+    loading.classList.remove('show');
+    if (progressBar) progressBar.style.width = '0%';
+  }
 }
 function showToast(emoji, msg) {
   const toast = document.getElementById('toast');
@@ -466,7 +400,7 @@ function showToast(emoji, msg) {
 }
 function buildFileName(prefix, ext) {
   const name = (state.student.name || 'Eleve').replace(/\s+/g, '_');
-  const subj = SUBJECTS[state.subject]?.name || 'Cahier';
+  const subj = t('subject.' + state.subject) || 'Cahier';
   return `ACHIM_${name}_${subj}_${todayStr()}.${ext}`;
 }
 function readAsDataURL(file) {
@@ -649,7 +583,7 @@ function toggleTheme() {
   localStorage.setItem(THEME_KEY, themeMode);
   applyTheme();
   const labels = { auto: '🌤️ Auto', light: '☀️ Clair', dark: '🌙 Sombre' };
-  showToast(labels[themeMode], 'Thème appliqué');
+  showToast(labels[themeMode], t('customBg.applied'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -673,39 +607,29 @@ function applyLevel(levelKey) {
   const btnGuideNumber = document.getElementById('btnGuideNumber');
   const btnRuler = document.getElementById('btnRuler');
   const btnProtractor = document.getElementById('btnProtractor');
-  const stickerBarEl = document.getElementById('stickerBar');
   if (btnGuideLetter) btnGuideLetter.style.display = level.showGuides ? '' : 'none';
   if (btnGuideNumber) btnGuideNumber.style.display = level.showGuides ? '' : 'none';
   if (btnRuler) btnRuler.style.display = level.showRuler ? '' : 'none';
   if (btnProtractor) btnProtractor.style.display = level.showProtractor ? '' : 'none';
-  
-  // ⚡ Stickers : ne s'affichent QUE si un document est chargé
   updateStickerBarVisibility();
-  
   const badge = document.getElementById('levelBadge');
   if (badge) {
-    badge.textContent = `${level.emoji} ${level.label}`;
+    badge.textContent = `${level.emoji} ${t('level.' + levelKey)}`;
     badge.style.background = level.color;
   }
   const footerBadge = document.getElementById('footerBadge');
-  if (footerBadge) footerBadge.textContent = level.label;
+  if (footerBadge) footerBadge.textContent = t('level.' + levelKey);
 }
 
-// ⚡ Nouvelle fonction centrale
 function updateStickerBarVisibility() {
   const stickerBarEl = document.getElementById('stickerBar');
   if (!stickerBarEl) return;
-  
   const levelKey = localStorage.getItem('cahier-achim-level') || 'cp';
   const level = (typeof LEVELS !== 'undefined' && LEVELS[levelKey]) ? LEVELS[levelKey] : { showStickers: true };
   const hasDocument = (typeof state !== 'undefined') && state.numPages > 0;
   const isDrawing = (typeof state !== 'undefined') && !state.collageMode && !state.textSelectMode;
-  
-  if (hasDocument && isDrawing && level.showStickers) {
-    stickerBarEl.classList.add('show');
-  } else {
-    stickerBarEl.classList.remove('show');
-  }
+  if (hasDocument && isDrawing && level.showStickers) stickerBarEl.classList.add('show');
+  else stickerBarEl.classList.remove('show');
 }
 function openLevelPicker(forceShow = false) {
   const isFirstTime = !localStorage.getItem(LEVEL_KEY);
@@ -725,8 +649,7 @@ function openLevelPicker(forceShow = false) {
       <p style="color:#7f8c8d;font-size:14px">${t('level.description')}</p>
       <div class="level-grid">${cards}</div>
       <button class="modal-close" style="width:100%;margin-top:16px">${t('action.close')}</button>
-    </div>
-  `;
+    </div>`;
   modal.querySelectorAll('.level-card').forEach(card => {
     card.onclick = () => {
       setCurrentLevel(card.dataset.key);
@@ -776,10 +699,10 @@ function saveProfile() {
   updateProfileBtn();
 }
 function updateProfileBtn() {
-  const name = state.student.name || 'Élève';
+  const name = state.student.name || t('toolbar.profile');
   const pn = document.getElementById('profileName');
   const pa = document.getElementById('profileAvatar');
-  if (pn) pn.textContent = name.split(' ')[0] || 'Élève';
+  if (pn) pn.textContent = name.split(' ')[0] || '?';
   if (pa) pa.textContent = (state.student.name || '?')[0].toUpperCase();
 }
 function openProfileModal() {
@@ -800,8 +723,7 @@ function openProfileModal() {
         <button class="secondary" id="pCancel">${t('action.cancel')}</button>
         <button class="primary" id="pSave">${t('action.save')}</button>
       </div>
-    </div>
-  `;
+    </div>`;
   modal.querySelector('#pCancel').onclick = () => modal.remove();
   modal.querySelector('#pSave').onclick = () => {
     state.student.name = modal.querySelector('#pName').value.trim();
@@ -824,7 +746,7 @@ function updateSubjectBadge() {
   const n = document.getElementById('subjectName');
   const w = document.getElementById('subjectWorkName');
   if (e) e.textContent = s.emoji;
-  if (n) n.textContent = s.name;
+  if (n) n.textContent = t('subject.' + state.subject);
   if (w) w.textContent = state.workName ? `« ${state.workName} »` : '';
   const badge = document.getElementById('subjectBadge');
   if (badge) {
@@ -835,15 +757,13 @@ function updateSubjectBadge() {
 function openSubjectPicker() {
   const level = LEVELS[getCurrentLevel()] || LEVELS.cp;
   const availableSubjects = {};
-  level.subjects.forEach(key => {
-    if (SUBJECTS[key]) availableSubjects[key] = SUBJECTS[key];
-  });
+  level.subjects.forEach(key => { if (SUBJECTS[key]) availableSubjects[key] = SUBJECTS[key]; });
   const modal = document.createElement('div');
   modal.className = 'modal';
   const cards = Object.entries(availableSubjects).map(([key, s]) => `
     <div class="subj-card ${state.subject === key ? 'active' : ''}" data-key="${key}"
          style="background:${s.color}20;border-color:${state.subject === key ? s.color : 'transparent'}">
-      <span class="emoji">${s.emoji}</span><span class="name">${s.name}</span>
+      <span class="emoji">${s.emoji}</span><span class="name">${t('subject.' + key)}</span>
     </div>
   `).join('');
   modal.innerHTML = `
@@ -854,10 +774,9 @@ function openSubjectPicker() {
       </p>
       <div class="subject-picker">${cards}</div>
       <label class="modal-label">${t('subjectPicker.workName')}</label>
-      <input type="text" id="workNameInput" value="${escapeHtml(state.workName)}" ...>
+      <input type="text" id="workNameInput" value="${escapeHtml(state.workName)}" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;margin-top:4px">
       <button class="modal-close" style="width:100%;margin-top:12px">${t('action.close')}</button>
-    </div>
-  `;
+    </div>`;
   modal.querySelectorAll('.subj-card').forEach(card => {
     card.onclick = () => {
       state.subject = card.dataset.key;
@@ -907,16 +826,15 @@ function initTextSelection() {
   const btnTextSelect = document.getElementById('btnTextSelect');
   const textContextMenu = document.getElementById('textContextMenu');
   if (!btnTextSelect) return;
- btnTextSelect.onclick = () => {
-  state.textSelectMode = !state.textSelectMode;
-  btnTextSelect.classList.toggle('active', state.textSelectMode);
-  document.body.classList.toggle('text-select-mode', state.textSelectMode);
-  if (state.textSelectMode && state.collageMode) exitCollageMode();
-  
-  updateStickerBarVisibility();  // ⚡ cache les stickers en mode lecture
-  
-  showToast(state.textSelectMode ? '🗣️' : '✏️', state.textSelectMode ? 'Mode lecture activé' : 'Mode dessin réactivé');
-};
+  btnTextSelect.onclick = () => {
+    state.textSelectMode = !state.textSelectMode;
+    btnTextSelect.classList.toggle('active', state.textSelectMode);
+    document.body.classList.toggle('text-select-mode', state.textSelectMode);
+    if (state.textSelectMode && state.collageMode) exitCollageMode();
+    updateStickerBarVisibility();
+    showToast(state.textSelectMode ? '🗣️' : '✏️',
+      state.textSelectMode ? t('toolbar.listen') : t('toolbar.pen'));
+  };
   function handleTextSelection() {
     if (!state.textSelectMode) return;
     const selection = window.getSelection();
@@ -941,7 +859,7 @@ function initTextSelection() {
   document.getElementById('ctxWeb').onclick = () => { if (currentSelectedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(currentSelectedText)}`, '_blank'); textContextMenu.style.display = 'none'; };
   document.getElementById('ctxCopy').onclick = async () => {
     if (currentSelectedText) {
-      try { await navigator.clipboard.writeText(currentSelectedText); showToast('📋', 'Texte copié !'); }
+      try { await navigator.clipboard.writeText(currentSelectedText); showToast('📋', t('message.copy')); }
       catch { alert(currentSelectedText); }
     }
     textContextMenu.style.display = 'none';
@@ -959,7 +877,7 @@ function initPdfLoader() {
   fileInput.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    setLoading(true, 'Chargement du PDF...');
+    setLoading(true, t('message.loading'));
     showWorkspace();
     try {
       const buf = await file.arrayBuffer();
@@ -978,7 +896,7 @@ function initPdfLoader() {
       updatePageInfo();
       if (state.currentPage > 1) gotoPage(state.currentPage);
       updatePdfSearchButtonState();
-    } catch (err) { alert('Erreur PDF : ' + err.message); }
+    } catch (err) { alert(t('message.error') + ' : ' + err.message); }
     finally { setLoading(false); fileInput.value = ''; }
   });
 }
@@ -997,7 +915,7 @@ function initImageLoaders() {
   });
 }
 async function handleImageFiles(files) {
-  setLoading(true, 'Traitement des images...');
+  setLoading(true, t('message.processing'));
   showWorkspace();
   try {
     const hasContent = state.pdfDoc || state.imageBitmaps.length > 0;
@@ -1009,6 +927,7 @@ async function handleImageFiles(files) {
       state.currentWorkId = null;
     }
     for (let i = 0; i < files.length; i++) {
+      const progressBar = document.getElementById('progressBar');
       if (progressBar) progressBar.style.width = Math.round((i / files.length) * 100) + '%';
       let dataURL = await readAsDataURL(files[i]);
       dataURL = await compressImage(dataURL, 1600, files[i].size > 1.5 * 1024 * 1024 ? 0.75 : 0.85);
@@ -1021,20 +940,23 @@ async function handleImageFiles(files) {
     state.numPages = state.pdfDoc ? state.pdfDoc.numPages + state.imageBitmaps.length : state.imageBitmaps.length;
     await renderAllPages();
     updatePageInfo();
-    showToast('🖼️', 'Images ajoutées');
-  } catch (err) { alert('Erreur image : ' + err.message); }
+    showToast('🖼️', t('message.imagesAdded'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 function askMode(count) {
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'modal';
+    const title = count > 1
+      ? `${t('action.add')} ${count} ${t('button.image')}`
+      : `${t('action.add')} 1 ${t('button.image')}`;
     modal.innerHTML = `
       <div class="modal-content" style="text-align:center">
-        <h2 style="margin-top:0">Ajouter ${count} image${count>1?'s':''}</h2>
+        <h2 style="margin-top:0">${title}</h2>
         <div class="modal-actions-inline" style="margin-top:20px">
-          <button class="modal-btn primary" data-action="add">➕ Ajouter</button>
-          <button class="modal-btn secondary" data-action="replace">🔄 Remplacer</button>
+          <button class="modal-btn primary" data-action="add">➕ ${t('action.add')}</button>
+          <button class="modal-btn secondary" data-action="replace">🔄 ${t('action.replace')}</button>
         </div>
       </div>`;
     modal.querySelectorAll('button').forEach(btn => {
@@ -1297,10 +1219,7 @@ function showWorkspace() {
   document.getElementById('pedagoBar').style.display = 'flex';
   document.getElementById('zoomBar').style.display = 'flex';
   document.getElementById('subjectBadge').classList.add('show');
-  
-  // ⚡ Les stickers suivent leur propre logique
   updateStickerBarVisibility();
-  
   updatePdfSearchButtonState();
 }
 
@@ -1310,36 +1229,36 @@ function showWorkspace() {
 function initToolButtons() {
   const group = document.getElementById('drawToolsGroup');
   if (!group) return;
-  group.innerHTML = DRAW_TOOLS.map(t => {
-    const title = I18N.t(t.titleKey);
-    return `<button class="tool-btn ${t.cssClass || ''} ${t.active ? 'active' : ''}" id="${t.id}" title="${title}" aria-label="${title}" data-i18n-title="${t.titleKey}" data-i18n-aria="${t.titleKey}">${t.emoji}</button>`;
+  group.innerHTML = DRAW_TOOLS.map(tool => {
+    const title = I18N.t(tool.titleKey);
+    return `<button class="tool-btn ${tool.cssClass || ''} ${tool.active ? 'active' : ''}" id="${tool.id}" title="${title}" aria-label="${title}" data-i18n-title="${tool.titleKey}" data-i18n-aria="${tool.titleKey}">${tool.emoji}</button>`;
   }).join('');
-  DRAW_TOOLS.forEach(t => {
-    toolButtons[t.tool] = document.getElementById(t.id);
+  DRAW_TOOLS.forEach(tool => {
+    toolButtons[tool.tool] = document.getElementById(tool.id);
   });
-  // Attacher les événements sauf collage et textSelect
-  DRAW_TOOLS.forEach(t => {
-    const btn = document.getElementById(t.id);
+  DRAW_TOOLS.forEach(tool => {
+    const btn = document.getElementById(tool.id);
     if (!btn) return;
-    if (t.tool === 'collage' || t.tool === 'textSelect') return;
+    if (tool.tool === 'collage' || tool.tool === 'textSelect') return;
     btn.onclick = () => {
       if (state.collageMode) exitCollageMode();
       if (state.textSelectMode && document.getElementById('btnTextSelect')) document.getElementById('btnTextSelect').click();
-      state.tool = t.tool;
+      state.tool = tool.tool;
       Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
       btn.classList.add('active');
     };
   });
-  // Boutons spéciaux
-  if (toolButtons.magic) toolButtons.magic.onclick = () => {
+  const penMagic = document.getElementById('penMagic');
+  if (penMagic) penMagic.onclick = () => {
     state.tool = 'magic';
     Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
-    toolButtons.magic.classList.add('active');
+    penMagic.classList.add('active');
   };
-  if (toolButtons.neon) toolButtons.neon.onclick = () => {
+  const penNeon = document.getElementById('penNeon');
+  if (penNeon) penNeon.onclick = () => {
     state.tool = 'neon';
     Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
-    toolButtons.neon.classList.add('active');
+    penNeon.classList.add('active');
   };
 }
 function initDrawColorsAndSizes() {
@@ -1354,7 +1273,7 @@ function initDrawColorsAndSizes() {
       <div class="color-swatch" data-color="#f1c40f" style="background:#f1c40f"></div>
       <div class="color-swatch" data-color="#e67e22" style="background:#e67e22"></div>
       <div class="color-swatch" data-color="#8e44ad" style="background:#8e44ad"></div>
-      <input type="color" id="customColor" value="#000000" title="Couleur">
+      <input type="color" id="customColor" value="#000000" title="${t('tool.placeholder.color')}">
     `;
     colorPalette.querySelectorAll('.color-swatch').forEach(sw => {
       sw.onclick = () => {
@@ -1657,7 +1576,7 @@ function placeSticker(canvas, pageNum, pos) {
   pushGlobalAction({ type: 'sticker', page: pageNum, stroke });
   redrawPage(pageNum, canvas);
   scheduleSave();
-showToast(state.selectedSticker, t('message.success'));
+  showToast(state.selectedSticker, t('message.success'));
 }
 function pushGlobalAction(action) {
   state.globalHistory = state.globalHistory.slice(0, state.globalHistoryIndex + 1);
@@ -1763,7 +1682,7 @@ function renderClip(clip, pageNum) {
   el.style.transform = `rotate(${clip.rotation || 0}deg) scaleX(${clip.flipX ? -1 : 1})`;
   el.style.zIndex = clip.zIndex || 1;
   const img = document.createElement('img');
-  img.src = clip.src; img.alt = clip.name || 'Image';
+  img.src = clip.src; img.alt = clip.name || t('button.image');
   img.draggable = false;
   el.appendChild(img);
   ['resize', 'rotate', 'delete', 'flip'].forEach(type => {
@@ -1857,11 +1776,11 @@ function deselectClip() {
 function updateClipInfo() {
   const clipInfo = document.getElementById('clipInfo');
   if (!clipInfo) return;
-  if (!state.selectedClip) { clipInfo.textContent = 'Aucune image sélectionnée'; return; }
+  if (!state.selectedClip) { clipInfo.textContent = t('collage.noneSelected'); return; }
   const clips = getClips(state.selectedClip.pageNum);
   const clip = clips.find(c => c.id === state.selectedClip.clipId);
-  if (!clip) { clipInfo.textContent = 'Aucune image sélectionnée'; return; }
-  clipInfo.textContent = `${clip.name || 'Image'} • ${Math.round(clip.width)}×${Math.round(clip.height)} • ${Math.round(clip.rotation || 0)}° ${clip.locked ? '🔒' : ''}`;
+  if (!clip) { clipInfo.textContent = t('collage.noneSelected'); return; }
+  clipInfo.textContent = `${clip.name || t('button.image')} • ${Math.round(clip.width)}×${Math.round(clip.height)} • ${Math.round(clip.rotation || 0)}° ${clip.locked ? '🔒' : ''}`;
 }
 function deleteClip(clipId, pageNum) {
   const clips = getClips(pageNum);
@@ -1871,7 +1790,7 @@ function deleteClip(clipId, pageNum) {
   getClipsLayer(pageNum)?.querySelector(`[data-clip-id="${clipId}"]`)?.remove();
   if (state.selectedClip?.clipId === clipId) deselectClip();
   scheduleSave();
-  showToast('🗑️', 'Image supprimée');
+  showToast('🗑️', t('message.imageDeleted'));
 }
 function addClipToPage(imageSrc, name, pageNum, options = {}) {
   const clips = getClips(pageNum);
@@ -1888,7 +1807,7 @@ function addClipToPage(imageSrc, name, pageNum, options = {}) {
       cw *= ratio; ch *= ratio;
     }
     const clip = {
-      id: generateId('clip'), src: imageSrc, name: name || 'Image',
+      id: generateId('clip'), src: imageSrc, name: name || t('button.image'),
       x: (w - cw) / 2, y: (h - ch) / 2, width: cw, height: ch,
       rotation: 0, flipX: false,
       zIndex: (clips.length ? Math.max(...clips.map(c => c.zIndex || 1)) + 1 : 1),
@@ -1898,11 +1817,11 @@ function addClipToPage(imageSrc, name, pageNum, options = {}) {
     renderClip(clip, pageNum);
     selectClip(clip.id, pageNum);
     scheduleSave();
-    showToast('🖼️', 'Image ajoutée !');
+    showToast('🖼️', t('message.imageAdded'));
   };
   img.onerror = () => {
     const clip = {
-      id: generateId('clip'), src: imageSrc, name: name || 'Image',
+      id: generateId('clip'), src: imageSrc, name: name || t('button.image'),
       x: w / 2 - 60, y: h / 2 - 60, width: 120, height: 120,
       rotation: 0, flipX: false,
       zIndex: (clips.length ? Math.max(...clips.map(c => c.zIndex || 1)) + 1 : 1),
@@ -1924,10 +1843,8 @@ function enterCollageMode() {
   document.body.classList.add('collage-mode');
   document.getElementById('collageBar').classList.add('show');
   if (toolButtons.collage) toolButtons.collage.classList.add('active');
-  
-  updateStickerBarVisibility();  // ⚡ cache les stickers
-  
-  showToast('✂️', 'Atelier collage');
+  updateStickerBarVisibility();
+  showToast('✂️', t('collage.title'));
 }
 
 function exitCollageMode() {
@@ -1936,10 +1853,8 @@ function exitCollageMode() {
   document.getElementById('collageBar').classList.remove('show');
   if (toolButtons.collage) toolButtons.collage.classList.remove('active');
   deselectClip();
-  
-  updateStickerBarVisibility();  // ⚡ réaffiche les stickers
-  
-  showToast('✏️', 'Mode dessin');
+  updateStickerBarVisibility();
+  showToast('✏️', t('toolbar.pen'));
 }
 function openClipPicker() {
   const modal = document.createElement('div');
@@ -1960,14 +1875,14 @@ function openClipPicker() {
     const grid = modal.querySelector('.clip-pack-grid');
     if (currentTab === 'custom') {
       if (state.customClips.length === 0) {
-         grid.innerHTML = `<div class="clip-empty" style="grid-column: 1/-1">${t('clip.empty')}<br><small>${t('scissors.keep')}</small></div>`;
+        grid.innerHTML = `<div class="clip-empty" style="grid-column: 1/-1">${t('clip.empty')}<br><small>${t('scissors.keep')}</small></div>`;
         return;
       }
       grid.innerHTML = state.customClips.map((c, i) => `
         <div class="clip-pack-item custom" data-custom-index="${i}">
           <img src="${c.src}" alt="${escapeHtml(c.name)}">
           <div class="clip-name">${escapeHtml(c.name)}</div>
-          <button class="clip-del" data-del-index="${i}" title="Supprimer">✕</button>
+          <button class="clip-del" data-del-index="${i}" title="${t('action.delete')}">✕</button>
         </div>
       `).join('');
       grid.querySelectorAll('.clip-pack-item').forEach(item => {
@@ -1983,7 +1898,7 @@ function openClipPicker() {
         btn.onclick = (e) => {
           e.stopPropagation();
           const idx = parseInt(btn.dataset.delIndex);
-          if (!confirm(`Supprimer "${state.customClips[idx].name}" ?`)) return;
+          if (!confirm(t('message.confirmDelete'))) return;
           state.customClips.splice(idx, 1);
           saveCustomClips();
           renderContent();
@@ -2005,7 +1920,7 @@ function openClipPicker() {
     });
   }
   const tabsHTML = categories.map(cat => `<button class="clip-tab ${cat.key === currentTab ? 'active' : ''}" data-tab="${cat.key}">${cat.label}</button>`).join('');
-   modal.innerHTML = `
+  modal.innerHTML = `
     <div class="modal-content">
       <h2>🖼️ ${t('clip.title')}</h2>
       <p style="font-size:13px;color:#7f8c8d;margin-top:0">${t('clip.hint')}</p>
@@ -2037,7 +1952,7 @@ function initClips() {
   document.getElementById('clipExit').onclick = exitCollageMode;
   document.getElementById('clipAdd').onclick = openClipPicker;
   document.getElementById('clipRotate').onclick = () => {
-    if (!state.selectedClip) { showToast('⚠️', 'Sélectionne une image'); return; }
+    if (!state.selectedClip) { showToast('⚠️', t('message.selectImageFirst')); return; }
     const clip = getClips(state.selectedClip.pageNum).find(c => c.id === state.selectedClip.clipId);
     if (!clip) return;
     clip.rotation = (clip.rotation || 0) + 15;
@@ -2082,7 +1997,7 @@ function initClips() {
     renderClip(clip, state.selectedClip.pageNum);
     selectClip(clip.id, state.selectedClip.pageNum);
     scheduleSave();
-    showToast(clip.locked ? '🔒' : '🔓', clip.locked ? 'Image verrouillée' : 'Image déverrouillée');
+    showToast(clip.locked ? '🔒' : '🔓', clip.locked ? t('collage.lock') : t('collage.lock'));
   };
   document.getElementById('clipDuplicate').onclick = () => {
     if (!state.selectedClip) return;
@@ -2102,7 +2017,7 @@ function initClips() {
   if (clipFileInput) clipFileInput.addEventListener('change', async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
-    setLoading(true, 'Import des images...');
+    setLoading(true, t('message.processing'));
     try {
       for (const f of files) {
         const dataURL = await readAsDataURL(f);
@@ -2110,10 +2025,10 @@ function initClips() {
         state.customClips.push({ id: generateId('custom'), name: f.name.replace(/\.[^.]+$/, ''), src: compressed, date: Date.now() });
       }
       saveCustomClips();
-      showToast('📁', `${files.length} image(s) importée(s)`);
+      showToast('📁', t('message.imagesAdded'));
       openClipPicker();
       setTimeout(() => { document.querySelector('.clip-tab[data-tab="custom"]')?.click(); }, 100);
-    } catch (err) { alert('Erreur import : ' + err.message); }
+    } catch (err) { alert(t('message.error') + ' : ' + err.message); }
     finally { setLoading(false); clipFileInput.value = ''; }
   });
   const scissorsBtn = document.getElementById('scissorsBtn');
@@ -2155,11 +2070,11 @@ function startScissorsTool(sourceOverride = null) {
 function startScissorsFromPage() {
   const viewer = document.getElementById('viewer');
   const container = viewer.querySelector(`.page-container[data-page="${state.currentPage}"]`);
-  if (!container) { alert('Aucune page ouverte.'); return; }
+  if (!container) { alert(t('message.noDocument')); return; }
   const pdfCanvas = container.querySelector('.pdf-canvas');
   const bgCanvas = container.querySelector('.bg-canvas');
   const drawCanvas = container.querySelector('.draw-canvas');
-  if (!pdfCanvas) { alert('Aucune image sur cette page.'); return; }
+  if (!pdfCanvas) { alert(t('message.noDocument')); return; }
   const merged = document.createElement('canvas');
   merged.width = pdfCanvas.width; merged.height = pdfCanvas.height;
   const ctx = merged.getContext('2d');
@@ -2170,16 +2085,16 @@ function startScissorsFromPage() {
 }
 function startScissorsFromCustom() {
   if (state.customClips.length === 0) {
-    if (confirm('Aucune image personnalisée. Importer maintenant ?')) document.getElementById('clipFileInput').click();
+    if (confirm(t('clip.empty'))) document.getElementById('clipFileInput').click();
     return;
   }
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.innerHTML = `
     <div class="modal-content" style="max-width:600px">
-      <h2 style="margin-top:0;color:#e74c3c">📁 Choisir une image à découper</h2>
+      <h2 style="margin-top:0;color:#e74c3c">📁 ${t('scissors.title')}</h2>
       <div class="clip-pack-grid" id="scissorsGrid"></div>
-      <button class="modal-close" style="width:100%">Annuler</button>
+      <button class="modal-close" style="width:100%">${t('action.cancel')}</button>
     </div>`;
   const grid = modal.querySelector('#scissorsGrid');
   grid.innerHTML = state.customClips.map((c, i) => `
@@ -2204,8 +2119,8 @@ function launchScissors({ src, name }) {
   modal.innerHTML = `
     <div class="modal-content">
       <div class="scissors-header">
-        <h3>✂️ Découper</h3>
-        <span class="source-info">${escapeHtml(name || 'Image')}</span>
+        <h3>✂️ ${t('scissors.title')}</h3>
+        <span class="source-info">${escapeHtml(name || t('button.image'))}</span>
         <div class="scissors-zoom-controls">
           <button id="scissorsModeRect" class="scissors-mode-btn active" title="Rectangle">▭</button>
           <button id="scissorsModeLasso" class="scissors-mode-btn" title="Lasso">🖊️</button>
@@ -2234,10 +2149,10 @@ function launchScissors({ src, name }) {
         </div>
       </div>
       <div class="scissors-actions">
-        <label><input type="checkbox" id="scissorsRound"> Coins arrondis</label>
-        <label><input type="checkbox" id="scissorsKeep"> Garder dans mes images</label>
-        <button class="btn-cancel" id="scissorsCancel">Annuler</button>
-        <button class="btn-cut" id="scissorsCut">✂️ Découper</button>
+        <label><input type="checkbox" id="scissorsRound"> ${t('scissors.keep')}</label>
+        <label><input type="checkbox" id="scissorsKeep"> ${t('scissors.keep')}</label>
+        <button class="btn-cancel" id="scissorsCancel">${t('action.cancel')}</button>
+        <button class="btn-cut" id="scissorsCut">✂️ ${t('clip.cut')}</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -2257,7 +2172,6 @@ function launchScissors({ src, name }) {
   scissorsState.offsetX = 0;
   scissorsState.offsetY = 0;
 
-  // Lasso
   const lassoCanvas = modal.querySelector('#scissorsLassoCanvas');
   const lassoCtx = lassoCanvas.getContext('2d');
   const modeRectBtn = modal.querySelector('#scissorsModeRect');
@@ -2265,6 +2179,7 @@ function launchScissors({ src, name }) {
   let lassoMode = 'rect';
   let lassoPath = [];
   let lassoDone = false;
+  let lassoPathInImage = [];
 
   function resizeLassoCanvas() {
     const r = stage.getBoundingClientRect();
@@ -2422,13 +2337,13 @@ function launchScissors({ src, name }) {
     h.addEventListener('pointerup', (e) => { handleDrag = null; e.stopPropagation(); });
   });
 
-  // Lasso interactions
   let lassoDrawing = false;
   lassoCanvas.addEventListener('pointerdown', (e) => {
     if (lassoMode !== 'lasso') return;
     e.preventDefault();
     lassoDrawing = true;
     lassoPath = [];
+    lassoPathInImage = [];
     lassoDone = false;
     const r = lassoCanvas.getBoundingClientRect();
     lassoPath.push({ x: e.clientX - r.left, y: e.clientY - r.top });
@@ -2444,7 +2359,16 @@ function launchScissors({ src, name }) {
   lassoCanvas.addEventListener('pointerup', (e) => {
     if (!lassoDrawing) return;
     lassoDrawing = false;
-    if (lassoPath.length > 2) { lassoDone = true; redrawLasso(); updateLassoPreview(); }
+    if (lassoPath.length > 2) {
+      lassoDone = true;
+      lassoPathInImage = lassoPath.map(p => ({
+        x: (p.x - scissorsState.offsetX) / scissorsState.scale,
+        y: (p.y - scissorsState.offsetY) / scissorsState.scale
+      }));
+      scissorsState._lassoPath = lassoPath;
+      redrawLasso();
+      updateLassoPreview();
+    }
   });
   function updateLassoPreview() {
     if (lassoPath.length < 3) { previewPanel.classList.remove('show'); return; }
@@ -2491,12 +2415,12 @@ function launchScissors({ src, name }) {
     const keep = modal.querySelector('#scissorsKeep').checked;
     let result;
     if (lassoMode === 'lasso') {
-      if (lassoPath.length < 3 || !lassoDone) { showToast('⚠️', 'Dessine d\'abord un lasso'); return; }
+      if (lassoPath.length < 3 || !lassoDone) { showToast('⚠️', t('scissors.drawFirst')); return; }
       playCutAnimation();
       result = await extractLassoSelection(src);
     } else {
       const s = scissorsState.sel;
-      if (s.w < 5 || s.h < 5) { showToast('⚠️', 'Zone trop petite'); return; }
+      if (s.w < 5 || s.h < 5) { showToast('⚠️', t('scissors.tooSmall')); return; }
       playCutAnimation();
       result = await extractSelection(src, s, round);
     }
@@ -2578,7 +2502,7 @@ async function extractLassoSelection(src) {
   });
 }
 function showCutResult(result, sourceName, keepInLibrary) {
-  if (!result) { showToast('❌', 'Erreur découpe'); return; }
+  if (!result) { showToast('❌', t('scissors.error')); return; }
   const modal = document.createElement('div');
   modal.className = 'modal cut-result-modal';
   modal.innerHTML = `
@@ -2593,17 +2517,17 @@ function showCutResult(result, sourceName, keepInLibrary) {
     </div>`;
   modal.querySelector('#cutRedo').onclick = () => { modal.remove(); launchScissors({ src: result, name: sourceName }); };
   modal.querySelector('#cutSave').onclick = () => {
-    state.customClips.push({ id: generateId('custom'), name: sourceName ? `${sourceName} (découpé)` : 'Découpe', src: result, date: Date.now() });
-    saveCustomClips(); modal.remove(); showToast('💾', t('library.saved')); 
+    state.customClips.push({ id: generateId('custom'), name: sourceName ? `${sourceName} (découpé)` : t('clip.cut'), src: result, date: Date.now() });
+    saveCustomClips(); modal.remove(); showToast('💾', t('library.saved'));
   };
   modal.querySelector('#cutPlace').onclick = () => {
     modal.remove();
     if (keepInLibrary) {
-      state.customClips.push({ id: generateId('custom'), name: sourceName ? `${sourceName} (découpé)` : 'Découpe', src: result, date: Date.now() });
+      state.customClips.push({ id: generateId('custom'), name: sourceName ? `${sourceName} (découpé)` : t('clip.cut'), src: result, date: Date.now() });
       saveCustomClips();
     }
     if (!state.collageMode) enterCollageMode();
-    addClipToPage(result, sourceName ? `${sourceName} (découpé)` : 'Découpe', state.currentPage);
+    addClipToPage(result, sourceName ? `${sourceName} (découpé)` : t('clip.cut'), state.currentPage);
   };
   document.body.appendChild(modal);
 }
@@ -2669,7 +2593,6 @@ function createTextOverlay(canvas, pageNum, pos) {
    16. OUTILS PÉDAGOGIQUES
    ═══════════════════════════════════════════════════════════ */
 function initTools() {
-  // Fond
   document.querySelectorAll('.pedago-btn[data-mode]').forEach(btn => {
     btn.onclick = () => {
       const mode = btn.dataset.mode;
@@ -2686,7 +2609,6 @@ function initTools() {
   });
   document.getElementById('btnGuideLetter').onclick = () => showGuide('lettres');
   document.getElementById('btnGuideNumber').onclick = () => showGuide('chiffres');
-  // Règle + rapporteur
   buildRuler();
   makeDraggable(document.getElementById('ruler'));
   makeDraggable(document.getElementById('protractor'));
@@ -2704,9 +2626,7 @@ function initTools() {
     if (!visible && !p.style.left) { p.style.left = '60%'; p.style.top = '40%'; }
     document.getElementById('btnProtractor').classList.toggle('active', !visible);
   };
-  // Timer
   initTimer();
-  // Reconnaissance vocale
   initVoiceRecognition();
 }
 function showGuide(type) {
@@ -2717,24 +2637,24 @@ function showGuide(type) {
   if (type === 'lettres') {
     content.innerHTML = `
       <h2 style="margin-top:0">${t('guide.alphabet')}</h2>
-      <div ...>a b c d e f g h i j k l m n o p q r s t u v w x y z</div>
+      <div style="font-family:'Comic Sans MS',cursive;font-size:44px;line-height:1.4;letter-spacing:6px;word-break:break-all">a b c d e f g h i j k l m n o p q r s t u v w x y z</div>
       <h3>${t('guide.uppercase')}</h3>
-      <div ...>A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
+      <div style="font-family:'Comic Sans MS',cursive;font-size:44px;line-height:1.4;letter-spacing:6px;word-break:break-all">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
     `;
   } else {
     content.innerHTML = `
       <h2 style="margin-top:0">${t('guide.numbers')}</h2>
-      <div ...>0 1 2 3 4 5 6 7 8 9</div>
+      <div style="font-family:'Comic Sans MS',cursive;font-size:60px;line-height:1.4;letter-spacing:10px">0 1 2 3 4 5 6 7 8 9</div>
       <h3>${t('guide.numberLine')}</h3>
-      <div ...>0 • 1 • 2 • 3 • 4 • 5 • 6 • 7 • 8 • 9 • 10</div>
+      <div style="font-size:22px;letter-spacing:4px;color:#3498db;padding:8px;border-bottom:2px solid #3498db">0 • 1 • 2 • 3 • 4 • 5 • 6 • 7 • 8 • 9 • 10</div>
     `;
   }
-   close.textContent = t('action.close')
-  }
   const close = document.createElement('button');
-  close.className = 'modal-close'; close.textContent = 'Fermer';
+  close.className = 'modal-close';
+  close.textContent = t('action.close');
   close.onclick = () => modal.remove();
-  modal.appendChild(content); modal.appendChild(close);
+  modal.appendChild(content);
+  modal.appendChild(close);
   document.body.appendChild(modal);
 }
 function buildRuler() {
@@ -2806,7 +2726,7 @@ function initTimer() {
           clearInterval(timerInterval); timerRunning = false;
           document.getElementById('timerToggle').textContent = '▶';
           timer.classList.remove('running');
-          showToast('⏰', "Temps écoulé !"); beep();
+          showToast('⏰', t('timer.ended')); beep();
         }
       }, 1000);
       timerRunning = true;
@@ -2849,10 +2769,10 @@ function beep() {
 function initVoiceRecognition() {
   document.getElementById('btnRecognize').onclick = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("🎤 Reconnaissance vocale non disponible."); return; }
+    if (!SR) { alert(t('voice.notAvailable')); return; }
     const rec = new SR();
     rec.lang = 'fr-FR'; rec.continuous = false;
-    showToast('🎤', 'Dis un chiffre ou une lettre...');
+    showToast('🎤', t('voice.listening'));
     rec.onresult = (e) => {
       const text = e.results[0][0].transcript.trim().toLowerCase();
       const map = {'zéro':0,'un':1,'deux':2,'trois':3,'quatre':4,'cinq':5,'six':6,'sept':7,'huit':8,'neuf':9,'dix':10};
@@ -2860,8 +2780,8 @@ function initVoiceRecognition() {
       if (target.length > 1 && /^[a-z]$/.test(target[0])) target = target[0];
       showLetterForCopy(target);
     };
-    rec.onerror = (e) => { if (e.error === 'not-allowed') alert('Micro refusé.'); else showToast('❌', "Pas compris"); };
-    try { rec.start(); } catch { showToast('❌', 'Erreur micro'); }
+    rec.onerror = (e) => { if (e.error === 'not-allowed') alert(t('voice.micDenied')); else showToast('❌', t('voice.notUnderstood')); };
+    try { rec.start(); } catch { showToast('❌', t('voice.micError')); }
   };
 }
 function showLetterForCopy(letter) {
@@ -2870,10 +2790,11 @@ function showLetterForCopy(letter) {
   modal.innerHTML = `
     <div class="modal-content" style="background:#fff;color:#000;padding:32px 60px">
       <p style="font-size:16px;color:#888;margin:0">${t('guide.copy')}</p>
-      <div ...>${escapeHtml(letter)}</div>
+      <div style="font-family:'Comic Sans MS',cursive;font-size:180px;font-weight:bold;color:#e74c3c;line-height:1">${escapeHtml(letter)}</div>
     </div>`;
   const close = document.createElement('button');
-  close.className = 'modal-close'; close.textContent = t('action.close');
+  close.className = 'modal-close';
+  close.textContent = t('action.close');
   close.onclick = () => modal.remove();
   modal.appendChild(close); document.body.appendChild(modal);
   if ('speechSynthesis' in window) {
@@ -2920,25 +2841,25 @@ function addStatsPage(pdf, stats) {
   pdf.setFillColor(26, 62, 98); pdf.rect(0, 0, w/2, 10, 'F');
   pdf.setFillColor(51, 124, 68); pdf.rect(w/2, 0, w/2, 10, 'F');
   pdf.setTextColor(26, 62, 98); pdf.setFontSize(14); pdf.setFont(undefined, 'bold');
-  pdf.text('🎓 CAHIER NUMÉRIQUE ACHIM', 40, 40);
+  pdf.text('🎓 ' + ACHIM.produit, 40, 40);
   pdf.setTextColor(44, 62, 80); pdf.setFontSize(22);
   pdf.text('📊 Fiche de suivi', 40, 75);
   pdf.setFontSize(12); pdf.setFont(undefined, 'normal'); pdf.setTextColor(127, 140, 141);
-  pdf.text(`${subj.emoji} ${subj.name} — année ${ACHIM.anneeScolaire}`, 40, 97);
+  pdf.text(`${subj.emoji} ${t('subject.' + state.subject)} — ${ACHIM.anneeScolaire}`, 40, 97);
   pdf.setDrawColor(26, 62, 98); pdf.setLineWidth(2); pdf.line(40, 115, w - 40, 115);
   pdf.setTextColor(44, 62, 80); pdf.setFontSize(14); pdf.setFont(undefined, 'bold');
-  pdf.text('Élève', 40, 145);
+  pdf.text(t('profile.name'), 40, 145);
   pdf.setFont(undefined, 'normal'); pdf.setFontSize(13);
-  pdf.text(state.student.name || 'Non renseigné', 40, 167);
-  if (state.student.classe) pdf.text('Classe : ' + state.student.classe, 40, 187);
-  pdf.text('École : ' + ACHIM.nom, 40, 207);
-  pdf.text('Année scolaire : ' + ACHIM.anneeScolaire, 40, 227);
+  pdf.text(state.student.name || '?', 40, 167);
+  if (state.student.classe) pdf.text(t('profile.class') + ' : ' + state.student.classe, 40, 187);
+  pdf.text(t('profile.school') + ' : ' + ACHIM.nom, 40, 207);
+  pdf.text(ACHIM.anneeScolaire, 40, 227);
   pdf.setFont(undefined, 'bold'); pdf.setFontSize(14); pdf.text('Séance', 40, 265);
   pdf.setFont(undefined, 'normal'); pdf.setFontSize(13);
-  pdf.text('Date : ' + new Date().toLocaleDateString('fr-FR'), 40, 287);
-  pdf.text('Durée : ' + stats.duration, 40, 309);
-  pdf.text('Pages travaillées : ' + stats.pagesTouched + ' / ' + state.numPages, 40, 331);
-  if (stats.clipsTotal > 0) pdf.text('Images collées : ' + stats.clipsTotal, 40, 353);
+  pdf.text(new Date().toLocaleDateString(), 40, 287);
+  pdf.text(stats.duration, 40, 309);
+  pdf.text(`${stats.pagesTouched} / ${state.numPages}`, 40, 331);
+  if (stats.clipsTotal > 0) pdf.text(String(stats.clipsTotal), 40, 353);
   pdf.setFont(undefined, 'bold'); pdf.setFontSize(14);
   pdf.text('Détail par page', 40, 385);
   pdf.setFont(undefined, 'normal'); pdf.setFontSize(11);
@@ -2959,19 +2880,19 @@ function addStatsPage(pdf, stats) {
     y += 22;
   });
   pdf.setFontSize(9); pdf.setTextColor(150, 150, 150);
-  pdf.text('Cahier Numérique ACHIM • ' + ACHIM.anneeScolaire, 40, h - 30);
+  pdf.text(ACHIM.produit + ' • ' + ACHIM.anneeScolaire, 40, h - 30);
 }
 async function exportFinishedPDF(silent = false) {
   if (!state.numPages) return;
   let workName = state.workName;
   if (!silent) {
     const defaultName = `ACHIM_${(state.student.name || 'Eleve').replace(/\s+/g,'_')}_${todayStr()}`;
-    workName = prompt('Nom du travail :', workName || defaultName);
+    workName = prompt(t('subjectPicker.workName') + ' :', workName || defaultName);
     if (workName === null) return;
     state.workName = workName;
     updateSubjectBadge();
   }
-  setLoading(true, 'Génération PDF...');
+  setLoading(true, t('message.processing'));
   try {
     const { jsPDF } = window.jspdf;
     let pdf = null;
@@ -3006,7 +2927,7 @@ async function exportFinishedPDF(silent = false) {
     downloadBlob(blob, filename);
     showToast('📤', t('message.downloaded'));
     return blob;
-  } catch (err) { alert('Erreur export : ' + err.message); }
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setTimeout(() => setLoading(false), 500); }
 }
 async function drawClipOnCanvas(ctx, clip, containerWidth) {
@@ -3037,9 +2958,9 @@ function addHeaderToCanvas(canvas) {
   ctx.fillStyle = ACHIM.couleurs.primaire; ctx.fillRect(0, headerH - 5, w/2, 5);
   ctx.fillStyle = ACHIM.couleurs.secondaire; ctx.fillRect(w/2, headerH - 5, w/2, 5);
   ctx.fillStyle = ACHIM.couleurs.primaire; ctx.font = 'bold 14px system-ui, sans-serif';
-  ctx.textBaseline = 'top'; ctx.fillText('🎓 CAHIER NUMÉRIQUE ACHIM', 20, 12);
+  ctx.textBaseline = 'top'; ctx.fillText('🎓 ' + ACHIM.produit, 20, 12);
   ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 19px system-ui, sans-serif';
-  ctx.fillText(`👦 ${state.student.name || 'Élève'}`, 20, 34);
+  ctx.fillText(`👦 ${state.student.name || '?'}`, 20, 34);
   ctx.font = '14px system-ui, sans-serif'; ctx.fillStyle = '#7f8c8d';
   const infos = [state.student.classe, state.student.ecole || ACHIM.nom].filter(Boolean).join(' • ');
   if (infos) ctx.fillText(infos, 20, 58);
@@ -3047,11 +2968,11 @@ function addHeaderToCanvas(canvas) {
   ctx.textAlign = 'right';
   ctx.fillStyle = subj.color;
   ctx.font = 'bold 16px system-ui, sans-serif';
-  ctx.fillText(`${subj.emoji} ${subj.name}`, w - 20, 12);
+  ctx.fillText(`${subj.emoji} ${t('subject.' + state.subject)}`, w - 20, 12);
   ctx.fillStyle = '#2c3e50'; ctx.font = '13px system-ui, sans-serif';
-  ctx.fillText(new Date().toLocaleDateString('fr-FR'), w - 20, 36);
+  ctx.fillText(new Date().toLocaleDateString(), w - 20, 36);
   ctx.fillStyle = '#95a5a6'; ctx.font = '11px system-ui, sans-serif';
-  ctx.fillText('ACHIM • ' + ACHIM.anneeScolaire, w - 20, 56);
+  ctx.fillText(ACHIM.anneeScolaire, w - 20, 56);
   ctx.restore();
 }
 
@@ -3082,10 +3003,10 @@ async function sendByEmail() {
 }
 async function sendByEmailJS() {
   if (!confirm(`Envoyer à ${ACHIM.nom} ?`)) return;
-  setLoading(true, 'Envoi...');
+  setLoading(true, t('message.processing'));
   try {
     const pdfBlob = await exportFinishedPDF(true);
-    if (!pdfBlob) throw new Error('Erreur PDF');
+    if (!pdfBlob) throw new Error(t('message.error'));
     const base64 = await blobToBase64(pdfBlob);
     emailjs.init(EMAILJS_CONFIG.publicKey);
     await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
@@ -3094,56 +3015,55 @@ async function sendByEmailJS() {
       student_name: state.student.name || 'Élève',
       student_classe: state.student.classe || '',
       student_ecole: ACHIM.nom,
-      subject_name: SUBJECTS[state.subject]?.name || 'Cahier',
+      subject_name: t('subject.' + state.subject),
       work_name: state.workName || '',
-      date: new Date().toLocaleDateString('fr-FR'),
+      date: new Date().toLocaleDateString(),
       duration: computeStats().duration,
       clips_total: computeStats().clipsTotal,
       attachment: base64,
       filename: buildFileName('travail', 'pdf')
     });
-    showToast('📧', 'Envoyé !');
+    showToast('📧', t('message.sent'));
   } catch (err) {
-    const msg = err?.text || err?.message || 'Erreur';
-    if (confirm(`Erreur : ${msg}\n\nUtiliser mailto ?`)) await sendByMailto();
+    const msg = err?.text || err?.message || t('message.error');
+    if (confirm(t('email.errorFallback', { msg }))) await sendByMailto();
   } finally { setLoading(false); }
 }
 async function sendByMailto() {
-  setLoading(true, 'Préparation...');
+  setLoading(true, t('message.processing'));
   try {
     const pdfBlob = await exportFinishedPDF(true);
     if (!pdfBlob) return;
     const filename = buildFileName('travail', 'pdf');
     downloadBlob(pdfBlob, filename);
-    const subject = encodeURIComponent(`[ACHIM] Travail de ${state.student.name || 'élève'} - ${state.workName || SUBJECTS[state.subject]?.name || 'Cahier'}`);
+    const subject = encodeURIComponent(t('email.defaultSubject', { name: state.student.name || 'élève' }) + ' — ' + t('subject.' + state.subject));
     const body = encodeURIComponent(
-      `Bonjour,\n\nVoici le travail de ${state.student.name || 'élève'}` +
-      (state.student.classe ? ` (${state.student.classe})` : '') + `.\n\n` +
-      `📚 Matière : ${SUBJECTS[state.subject]?.name || 'Cahier'}\n` +
-      `📅 Date : ${new Date().toLocaleDateString('fr-FR')}\n\n` +
-      `👉 PDF "${filename}" à joindre.\n\nCordialement,\n${state.student.name || ''} — ${ACHIM.nom}`
+      t('email.defaultBody', { name: state.student.name || 'élève' }) + '\n\n' +
+      `📚 ${t('subject.' + state.subject)}\n` +
+      `📅 ${new Date().toLocaleDateString()}\n\n` +
+      `👉 PDF "${filename}" à joindre.\n\n${state.student.name || ''} — ${ACHIM.nom}`
     );
     window.location.href = `mailto:${ACHIM.email}?subject=${subject}&body=${body}`;
-    showToast('✉️', 'PDF téléchargé');
-  } catch (err) { alert('Erreur : ' + err.message); }
+    showToast('✉️', t('message.downloaded'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setTimeout(() => setLoading(false), 800); }
 }
 async function shareWork() {
   if (!state.numPages) return;
-  setLoading(true, 'Préparation...');
+  setLoading(true, t('message.processing'));
   try {
     const blob = await exportFinishedPDF(true);
     if (!blob) return;
     const filename = buildFileName('travail', 'pdf');
     const file = new File([blob], filename, { type: 'application/pdf' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Travail ACHIM' });
-      showToast('📤', 'Partagé !');
+      await navigator.share({ files: [file], title: ACHIM.produit });
+      showToast('📤', t('message.shared'));
     } else {
       downloadBlob(blob, filename);
-      showToast('📤', 'PDF téléchargé');
+      showToast('📤', t('message.downloaded'));
     }
-  } catch (err) { if (err.name !== 'AbortError') alert('Erreur : ' + err.message); }
+  } catch (err) { if (err.name !== 'AbortError') alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 
@@ -3186,7 +3106,7 @@ function loadAutoSave() {
   } catch { return null; }
 }
 async function restoreAutoSave(autosave) {
-  setLoading(true, 'Restauration...');
+  setLoading(true, t('message.processing'));
   showWorkspace();
   try {
     state.drawData = autosave.drawData || {};
@@ -3205,11 +3125,11 @@ async function restoreAutoSave(autosave) {
       }
       await renderImagePages();
     } else if (autosave.source?.type === 'pdf') {
-      if (confirm(`Le PDF doit être rechargé.`)) { document.getElementById('fileInput').click(); return; }
+      if (confirm(t('save.pdf'))) { document.getElementById('fileInput').click(); return; }
     }
     updatePageInfo();
-    showToast('📂', 'Travail restauré');
-  } catch (err) { alert('Erreur : ' + err.message); }
+    showToast('📂', t('message.restored'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 function openSaveMenu() {
@@ -3241,7 +3161,7 @@ function openSaveMenu() {
   document.body.appendChild(modal);
 }
 async function saveToHistory() {
-  setLoading(true, 'Enregistrement...');
+  setLoading(true, t('message.processing'));
   try {
     let pdfBlob = null;
     if (state.source.type === 'pdf' && state.pdfDoc) {
@@ -3263,12 +3183,12 @@ async function saveToHistory() {
     };
     await dbPut(work);
     state.currentWorkId = work.id;
-    showToast('📚', 'Enregistré dans l\'historique');
-  } catch (err) { alert('Erreur : ' + err.message); }
+    showToast('📚', t('message.savedHistory'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 async function saveAsCahier() {
-  setLoading(true, 'Préparation...');
+  setLoading(true, t('message.processing'));
   try {
     let pdfBase64 = null;
     if (state.pdfDoc) { const data = await state.pdfDoc.getData(); pdfBase64 = arrayBufferToBase64(data); }
@@ -3281,16 +3201,16 @@ async function saveAsCahier() {
     };
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     downloadBlob(blob, buildFileName('cahier', 'cahier'));
-    showToast('💾', 'Travail enregistré');
-  } catch (err) { alert('Erreur : ' + err.message); }
+    showToast('💾', t('message.saved'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 async function loadWorkFile(file) {
-  setLoading(true, 'Chargement...');
+  setLoading(true, t('message.loading'));
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    if (!data.version || !data.drawData) throw new Error('Fichier invalide');
+    if (!data.version || !data.drawData) throw new Error('Invalid file');
     showWorkspace();
     state.drawData = data.drawData || {};
     state.bgData = data.bgData || {};
@@ -3326,13 +3246,13 @@ async function loadWorkFile(file) {
     }
     updatePageInfo();
     if (state.currentPage > 1) gotoPage(state.currentPage);
-    showToast('📂', 'Travail chargé');
-  } catch (err) { alert('Impossible de charger : ' + err.message); }
+    showToast('📂', t('message.restored'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 let historyFilter = 'all';
 async function openHistory() {
-  setLoading(true, 'Chargement historique...');
+  setLoading(true, t('message.loading'));
   const allWorks = await dbGetAll();
   allWorks.sort((a, b) => b.date - a.date);
   setLoading(false);
@@ -3344,48 +3264,46 @@ function renderHistoryModal(allWorks) {
   modal.id = 'historyModal';
   const filtered = historyFilter === 'all' ? allWorks : allWorks.filter(w => w.subject === historyFilter);
   const filters = ['all', ...Object.keys(SUBJECTS)].map(k => {
-    const label = k === 'all' ? '📚 Tout' : `${SUBJECTS[k].emoji} ${SUBJECTS[k].name}`;
+    const label = k === 'all' ? t('history.all') : `${SUBJECTS[k].emoji} ${t('subject.' + k)}`;
     return `<button class="filter-chip ${historyFilter === k ? 'active' : ''}" data-filter="${k}">${label}</button>`;
   }).join('');
-  const items = filtered.length === 0
-    ? '<p style="text-align:center;color:#95a5a6;padding:32px">Aucun travail enregistré.</p>'
-    : filtered.map(w => {
-        const subj = SUBJECTS[w.subject] || SUBJECTS.cahier;
-        const date = new Date(w.date);
-        const dateStr = date.toLocaleDateString('fr-FR', { day:'numeric', month:'short', year:'numeric' }) + ' ' + date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-        const dur = Math.round((w.sessionDuration || 0) / 60000);
-        const clipsCount = Object.values(w.drawData || {}).reduce((s, d) => s + (d.clips?.length || 0), 0);
-        const pagesTouched = Object.keys(w.drawData || {}).filter(k => (w.drawData[k].strokes||[]).length > 0).length;
-        const title = w.workName ? `${w.student?.name || 'Élève'} • ${w.workName}` : `${w.student?.name || 'Élève'} • ${subj.name}`;
-        const clipsTxt = clipsCount > 0 ? ` • 🖼️ ${clipsCount}` : '';
-       const emptyMsg = `<p style="text-align:center;color:#95a5a6;padding:32px">${t('history.empty')}</p>`;
-        return `
-          <div class="history-item" data-id="${w.id}" style="border-left-color:${subj.color}">
-            <div class="subj-icon">${subj.emoji}</div>
-            <div class="info">
-              <div class="title">${escapeHtml(title)}</div>
-              <div class="meta">${dateStr} • ${dur} min • ${pagesTouched} page${pagesTouched>1?'s':''}${clipsTxt}</div>
-            </div>
-            <div class="actions-h">
-              <button class="resume" title="Reprendre">📂</button>
-              <button class="export" title="Exporter PDF">📤</button>
-              <button class="delete" title="Supprimer">🗑️</button>
-            </div>
-          </div>`;
-      }).join('');
-   
+  const emptyMsg = `<p style="text-align:center;color:#95a5a6;padding:32px">${t('history.empty')}</p>`;
+  const items = filtered.length === 0 ? emptyMsg : filtered.map(w => {
+    const subj = SUBJECTS[w.subject] || SUBJECTS.cahier;
+    const date = new Date(w.date);
+    const dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    const dur = Math.round((w.sessionDuration || 0) / 60000);
+    const clipsCount = Object.values(w.drawData || {}).reduce((s, d) => s + (d.clips?.length || 0), 0);
+    const pagesTouched = Object.keys(w.drawData || {}).filter(k => (w.drawData[k].strokes||[]).length > 0).length;
+    const title = w.workName ? `${w.student?.name || '?'} • ${w.workName}` : `${w.student?.name || '?'} • ${t('subject.' + w.subject)}`;
+    const clipsTxt = clipsCount > 0 ? ` • 🖼️ ${clipsCount}` : '';
+    return `
+      <div class="history-item" data-id="${w.id}" style="border-left-color:${subj.color}">
+        <div class="subj-icon">${subj.emoji}</div>
+        <div class="info">
+          <div class="title">${escapeHtml(title)}</div>
+          <div class="meta">${dateStr} • ${dur} min • ${pagesTouched} p.${clipsTxt}</div>
+        </div>
+        <div class="actions-h">
+          <button class="resume" title="${t('history.resume')}">📂</button>
+          <button class="export" title="${t('history.exportPDF')}">📤</button>
+          <button class="delete" title="${t('history.delete')}">🗑️</button>
+        </div>
+      </div>`;
+  }).join('');
+
   modal.innerHTML = `
     <div class="modal-content">
       <h2 style="margin-top:0;color:var(--achim-bleu)">📚 ${t('history.title')}</h2>
       <div class="history-filters">${filters}</div>
       <div class="history-list">${items}</div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button id="exportAllHistory" ...>${t('history.exportAll')}</button>
-        <button id="clearHistory" ...>${t('history.clear')}</button>
-        <button class="modal-close" ...>${t('action.close')}</button>
+        <button id="exportAllHistory" style="flex:1;padding:10px;border:none;border-radius:8px;background:#3498db;color:white;font-weight:bold;cursor:pointer">${t('history.exportAll')}</button>
+        <button id="clearHistory" style="padding:10px;border:none;border-radius:8px;background:#e74c3c;color:white;font-weight:bold;cursor:pointer">${t('history.clear')}</button>
+        <button class="modal-close" style="width:auto;padding:10px 20px;margin:0">${t('action.close')}</button>
       </div>
     </div>`;
-   
+
   modal.querySelectorAll('.filter-chip').forEach(chip => {
     chip.onclick = () => { historyFilter = chip.dataset.filter; modal.remove(); renderHistoryModal(allWorks); };
   });
@@ -3394,28 +3312,31 @@ function renderHistoryModal(allWorks) {
     item.querySelector('.resume').onclick = (e) => { e.stopPropagation(); modal.remove(); resumeFromHistory(id); };
     item.querySelector('.export').onclick = (e) => { e.stopPropagation(); modal.remove(); exportFromHistory(id); };
     item.querySelector('.delete').onclick = async (e) => {
-      e.stopPropagation(); if (!confirm(t('message.confirmDelete'))) return;
+      e.stopPropagation();
+      if (!confirm(t('message.confirmDelete'))) return;
       await dbDelete(id); modal.remove(); openHistory();
     };
   });
   modal.querySelector('.modal-close').onclick = () => modal.remove();
   modal.querySelector('#exportAllHistory').onclick = async () => {
-    if (filtered.length === 0) { alert('Rien à exporter.'); return; }
+    if (filtered.length === 0) { alert(t('history.empty')); return; }
     modal.remove();
     await exportHistoryAsZip(filtered);
   };
   modal.querySelector('#clearHistory').onclick = async () => {
     if (!confirm(t('message.confirmDeleteAll'))) return;
+    await dbClear(); modal.remove(); showToast('🗑️', t('history.clear'));
+  };
   document.body.appendChild(modal);
 }
 async function exportHistoryAsZip(works) {
-  setLoading(true, 'Préparation ZIP...');
+  setLoading(true, t('message.processing'));
   try {
     if (typeof JSZip === 'undefined') {
       const exportData = works.map(w => ({ id: w.id, date: w.date, student: w.student, subject: w.subject, workName: w.workName, numPages: w.numPages, drawData: w.drawData, bgData: w.bgData, stats: w.stats }));
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       downloadBlob(blob, `historique-achim-${todayStr()}.json`);
-      showToast('📦', `${works.length} travaux exportés`);
+      showToast('📦', `${works.length} ${t('history.exportAll')}`);
       return;
     }
     const zip = new JSZip();
@@ -3430,15 +3351,15 @@ async function exportHistoryAsZip(works) {
     zip.file('index.json', JSON.stringify(indexData, null, 2));
     const blob = await zip.generateAsync({ type: 'blob' });
     downloadBlob(blob, `historique-achim-${todayStr()}.zip`);
-    showToast('📦', `${works.length} travaux exportés`);
-  } catch (err) { alert('Erreur export : ' + err.message); }
+    showToast('📦', `${works.length} ${t('history.exportAll')}`);
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 async function resumeFromHistory(id) {
-  setLoading(true, 'Reprise...');
+  setLoading(true, t('message.processing'));
   try {
     const work = await dbGet(id);
-    if (!work) throw new Error('Travail introuvable');
+    if (!work) throw new Error('Not found');
     showWorkspace();
     state.drawData = work.drawData || {};
     state.bgData = work.bgData || {};
@@ -3473,12 +3394,12 @@ async function resumeFromHistory(id) {
     }
     updatePageInfo();
     if (state.currentPage > 1) gotoPage(state.currentPage);
-    showToast('📚', 'Travail repris');
-  } catch (err) { alert('Erreur : ' + err.message); }
+    showToast('📚', t('history.resume'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 async function exportFromHistory(id) {
-  setLoading(true, 'Export...');
+  setLoading(true, t('message.processing'));
   try { await resumeFromHistory(id); await exportFinishedPDF(true); }
   finally { setLoading(false); }
 }
@@ -3526,8 +3447,8 @@ function detectType(url, contentType = '') {
 }
 async function loadFromUrl(rawUrl) {
   const url = normalizeUrl(rawUrl);
-  if (!url) { alert('URL vide.'); return; }
-  setLoading(true, 'Téléchargement...');
+  if (!url) { alert(t('url.placeholder')); return; }
+  setLoading(true, t('message.loading'));
   try {
     const response = await fetch(url, { mode: 'cors' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -3538,9 +3459,9 @@ async function loadFromUrl(rawUrl) {
     else if (type === 'image') await openImageFromBlob(blob, url);
     else await openPdfFromBlob(blob, url.split('/').pop() || 'document.pdf');
     saveUrlToHistory(url);
-    showToast('🌐', 'Chargé depuis le web');
+    showToast('🌐', t('url.loaded'));
   } catch (err) {
-    alert('Erreur : ' + err.message);
+    alert(t('message.error') + ' : ' + err.message);
   } finally { setLoading(false); }
 }
 async function openPdfFromBlob(blob, name) {
@@ -3584,12 +3505,12 @@ function openUrlModal() {
         const name = h.url.split('/').pop() || h.url;
         return `<span class="recent-chip" data-url="${escapeHtml(h.url)}">${escapeHtml(name.substring(0, 30))}</span>`;
       }).join('')
-    : '<span style="font-size:12px;color:#95a5a6">Aucun lien récent</span>';
+    : `<span style="font-size:12px;color:#95a5a6">${t('url.none')}</span>`;
   modal.innerHTML = `
     <div class="modal-content">
       <h2>🌐 ${t('url.title')}</h2>
       <label class="modal-label">${t('url.label')}</label>
-      <input type="text" id="urlInput" placeholder="${t('url.placeholder')}" ...>
+      <input type="text" id="urlInput" placeholder="${t('url.placeholder')}" autocomplete="off" spellcheck="false">
       <div class="hint">${t('url.hint')}</div>
       <label class="modal-label">${t('url.recent')}</label>
       <div class="url-recent">${recentChips}</div>
@@ -3601,7 +3522,7 @@ function openUrlModal() {
   modal.querySelector('#urlCancel').onclick = () => modal.remove();
   modal.querySelector('#urlLoad').onclick = async () => {
     const url = modal.querySelector('#urlInput').value.trim();
-    if (!url) { alert('Colle un lien.'); return; }
+    if (!url) { alert(t('url.placeholder')); return; }
     modal.remove();
     await loadFromUrl(url);
   };
@@ -3610,7 +3531,6 @@ function openUrlModal() {
     chip.onclick = async () => { const url = chip.dataset.url; modal.remove(); await loadFromUrl(url); };
   });
   document.body.appendChild(modal);
-   showToast('🌐', t('url.loaded'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3625,7 +3545,16 @@ function openLibraryModal() {
   modal.className = 'modal';
   const items = lib.length === 0
     ? `<p style="text-align:center;color:#95a5a6;padding:32px">${t('library.empty')}</p>`
-    : lib.map((r, i) => `...`).join('');
+    : lib.map((r, i) => `
+        <div class="library-item" data-index="${i}" style="border-left:4px solid #16a085;background:#f5f7fa;padding:12px 14px;border-radius:10px;margin:6px 0;display:flex;align-items:center;gap:12px">
+          <div class="lib-icon" style="font-size:24px;min-width:36px;text-align:center;cursor:pointer">${r.icon || '📄'}</div>
+          <div class="lib-info" style="flex:1;min-width:0;cursor:pointer">
+            <div style="font-weight:bold;color:#2c3e50;font-size:14px">${escapeHtml(r.title)}</div>
+            <div style="font-size:12px;color:#7f8c8d">${escapeHtml(r.desc || r.url)}</div>
+          </div>
+          <button class="edit" style="background:#ecf0f1;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer">✏️</button>
+          <button class="delete" style="background:#ecf0f1;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer">🗑️</button>
+        </div>`).join('');
   modal.innerHTML = `
     <div class="modal-content" style="max-width:640px;text-align:left;width:90vw">
       <h2 style="margin-top:0;color:#16a085">📚 ${t('library.title')}</h2>
@@ -3633,15 +3562,6 @@ function openLibraryModal() {
       <div class="modal-actions-inline">
         <button id="libAdd" class="modal-btn primary">${t('library.add')}</button>
         <button class="modal-close" style="width:auto;padding:12px 20px;margin:0">${t('action.close')}</button>
-      </div>
-    </div>`).join('');
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width:640px;text-align:left;width:90vw">
-      <h2 style="margin-top:0;color:#16a085">📚 Bibliothèque</h2>
-      <div class="library-list">${items}</div>
-      <div class="modal-actions-inline">
-        <button id="libAdd" class="modal-btn primary">➕ Ajouter</button>
-        <button class="modal-close" style="width:auto;padding:12px 20px;margin:0">Fermer</button>
       </div>
     </div>`;
   modal.querySelector('.modal-close').onclick = () => modal.remove();
@@ -3656,12 +3576,11 @@ function openLibraryModal() {
     item.querySelector('.edit').onclick = (e) => { e.stopPropagation(); modal.remove(); openAddLibraryItem(index); };
     item.querySelector('.delete').onclick = (e) => {
       e.stopPropagation();
-      if (!confirm(`Supprimer "${lib[index].title}" ?`)) return;
+      if (!confirm(t('message.confirmDelete'))) return;
       lib.splice(index, 1); saveLibrary(lib); modal.remove(); openLibraryModal();
     };
   });
   document.body.appendChild(modal);
-    showToast(item.icon, t('library.saved'));
 }
 function openAddLibraryItem(editIndex = null) {
   const lib = loadLibrary();
@@ -3670,18 +3589,18 @@ function openAddLibraryItem(editIndex = null) {
   modal.className = 'modal url-modal';
   modal.innerHTML = `
     <div class="modal-content">
-      <h2>${editIndex !== null ? '✏️ Modifier' : '➕ Ajouter'}</h2>
-      <label class="modal-label">Icône</label>
+      <h2>${editIndex !== null ? '✏️ ' + t('library.edit') : '➕ ' + t('library.add')}</h2>
+      <label class="modal-label">${t('library.icon')}</label>
       <input type="text" id="libIcon" value="${escapeHtml(existing.icon)}" maxlength="4" style="font-size:24px;text-align:center">
-      <label class="modal-label">Titre</label>
+      <label class="modal-label">${t('library.name')}</label>
       <input type="text" id="libTitle" value="${escapeHtml(existing.title)}">
-      <label class="modal-label">Description</label>
+      <label class="modal-label">${t('library.description')}</label>
       <input type="text" id="libDesc" value="${escapeHtml(existing.desc)}">
-      <label class="modal-label">Lien</label>
+      <label class="modal-label">${t('library.link')}</label>
       <input type="text" id="libUrl" value="${escapeHtml(existing.url)}">
       <div class="modal-actions-inline">
-        <button class="modal-btn secondary" id="libCancel">Annuler</button>
-        <button class="modal-btn primary" id="libSave">💾 Enregistrer</button>
+        <button class="modal-btn secondary" id="libCancel">${t('action.cancel')}</button>
+        <button class="modal-btn primary" id="libSave">💾 ${t('action.save')}</button>
       </div>
     </div>`;
   modal.querySelector('#libCancel').onclick = () => modal.remove();
@@ -3692,11 +3611,11 @@ function openAddLibraryItem(editIndex = null) {
       desc: modal.querySelector('#libDesc').value.trim(),
       url: modal.querySelector('#libUrl').value.trim()
     };
-    if (!item.title || !item.url) { alert('Titre et lien obligatoires.'); return; }
+    if (!item.title || !item.url) { alert(t('library.required')); return; }
     if (editIndex !== null) lib[editIndex] = item; else lib.push(item);
     saveLibrary(lib);
     modal.remove();
-    showToast(item.icon, 'Ressource enregistrée');
+    showToast(item.icon, t('library.saved'));
     openLibraryModal();
   };
   document.body.appendChild(modal);
@@ -3714,14 +3633,14 @@ function initShare() {
   };
   document.getElementById('shareClose').onclick = () => { shareLinkModal.style.display = 'none'; };
   document.getElementById('shareCopy').onclick = async () => {
-    try { await navigator.clipboard.writeText(shareLinkOutput.value); showToast('📋', 'Lien copié !'); }
+    try { await navigator.clipboard.writeText(shareLinkOutput.value); showToast('📋', t('message.copy')); }
     catch { shareLinkOutput.select(); document.execCommand('copy'); }
   };
   document.getElementById('shareQR').onclick = () => {
     const qrDiv = document.getElementById('shareQRCode');
     const url = shareLinkOutput.value;
     if (!url || url.length > 1500) {
-      qrDiv.innerHTML = '<p style="color:#e74c3c">⚠️ Lien trop long pour un QR code.</p>';
+      qrDiv.innerHTML = `<p style="color:#e74c3c">${t('share.tooLong')}</p>`;
       return;
     }
     qrDiv.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" alt="QR">`;
@@ -3750,7 +3669,7 @@ function generateShareLink() {
     else encoded = btoa(encodeURIComponent(json));
     shareLinkOutput.value = `${location.origin}${location.pathname}#share=${encoded}`;
   } catch (err) {
-    shareLinkOutput.value = 'Erreur : ' + err.message;
+    shareLinkOutput.value = t('message.error') + ' : ' + err.message;
   }
 }
 async function tryLoadSharedLink() {
@@ -3761,7 +3680,7 @@ async function tryLoadSharedLink() {
     let json;
     if (typeof LZString !== 'undefined') json = LZString.decompressFromEncodedURIComponent(encoded);
     else json = decodeURIComponent(atob(encoded));
-    if (!json) throw new Error('Lien corrompu');
+    if (!json) throw new Error('Invalid');
     const payload = JSON.parse(json);
     showWorkspace();
     state.student.name = payload.s?.n || '';
@@ -3784,9 +3703,9 @@ async function tryLoadSharedLink() {
     updateProfileBtn();
     updateSubjectBadge();
     updatePageInfo();
-    showToast('🔗', 'Travail partagé chargé');
+    showToast('🔗', t('message.shared'));
     history.replaceState(null, '', location.pathname);
-  } catch (err) { alert('Erreur de chargement du lien : ' + err.message); }
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3804,21 +3723,21 @@ function initParentalLock() {
       askParentalPin((ok) => {
         if (!ok) return;
         if (isOn) {
-          if (confirm('Désactiver le verrou parental ?')) {
+          if (confirm(t('parental.confirmDeactivate'))) {
             document.body.classList.remove('parental-lock-on');
-            showToast('🔓', 'Verrou désactivé');
+            showToast('🔓', t('parental.deactivated'));
           }
         } else {
           document.body.classList.add('parental-lock-on');
-          showToast('🔐', 'Verrou activé');
+          showToast('🔐', t('parental.activated'));
         }
-      }, isOn ? 'désactiver' : 'activer');
+      }, isOn ? t('parental.confirmDeactivate') : t('parental.confirmActivate'));
     } else {
-      const pin = prompt('🔐 Crée un code à 4 chiffres (pour les parents) :');
-      if (!pin || !/^\d{4}$/.test(pin)) { alert('Code invalide. Doit être 4 chiffres.'); return; }
+      const pin = prompt(t('parental.create'));
+      if (!pin || !/^\d{4}$/.test(pin)) { alert(t('parental.invalid')); return; }
       localStorage.setItem(PIN_KEY, pin);
       document.body.classList.add('parental-lock-on');
-      showToast('🔐', 'Verrou parental activé');
+      showToast('🔐', t('parental.activated'));
     }
   };
   document.getElementById('parentalConfirm').onclick = () => {
@@ -3827,7 +3746,7 @@ function initParentalLock() {
       document.getElementById('parentalLockModal').style.display = 'none';
       pendingParentalAction?.(true);
     } else {
-      document.getElementById('parentalLockMsg').textContent = '❌ Code incorrect. Réessaie.';
+      document.getElementById('parentalLockMsg').textContent = t('parental.wrong');
       document.getElementById('parentalPinInput').value = '';
     }
   };
@@ -3836,11 +3755,11 @@ function initParentalLock() {
     pendingParentalAction?.(false);
   };
 }
-function askParentalPin(callback, actionLabel = 'confirmer') {
+function askParentalPin(callback, actionLabel = '') {
   document.getElementById('parentalLockModal').style.display = 'flex';
   document.getElementById('parentalPinInput').value = '';
   document.getElementById('parentalPinInput').focus();
-  document.getElementById('parentalLockMsg').textContent = `Entre le code pour ${actionLabel.toLowerCase()}.`;
+  document.getElementById('parentalLockMsg').textContent = actionLabel || t('parental.message');
   pendingParentalAction = callback;
 }
 
@@ -3859,7 +3778,7 @@ function startSmartScan() {
   temp.click();
 }
 async function processSmartScan(dataURL) {
-  setLoading(true, '🔍 Analyse de l\'image...');
+  setLoading(true, t('scan.analyzing'));
   try {
     const img = await loadImageFromDataURL(dataURL);
     const bounds = detectPaperBounds(img.img);
@@ -3884,8 +3803,8 @@ async function processSmartScan(dataURL) {
     state.numPages = state.imageBitmaps.length;
     await renderAllPages();
     updatePageInfo();
-    showToast('📸', 'Scan ajouté !');
-  } catch (err) { alert('Erreur scan : ' + err.message); }
+    showToast('📸', t('scan.added'));
+  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
 function detectPaperBounds(image) {
@@ -3964,12 +3883,11 @@ function initPdfSearch() {
   const bar = document.createElement('div');
   bar.id = 'pdfSearchBar';
   bar.innerHTML = `
-    <input type="text" id="pdfSearchInput" placeholder="Rechercher dans le PDF...">
-    <span id="pdfSearchResults">0 résultat</span>
+    <input type="text" id="pdfSearchInput" placeholder="${t('search.placeholder')}">
+    <span id="pdfSearchResults">${t('search.notFound')}</span>
     <button id="pdfSearchPrev">◀</button>
     <button id="pdfSearchNext">▶</button>
-    <button id="pdfSearchClose">✕</button>
-  `;
+    <button id="pdfSearchClose">✕</button>`;
   document.body.appendChild(bar);
   const btnPdfSearch = document.getElementById('btnPdfSearch');
   if (btnPdfSearch) btnPdfSearch.onclick = togglePdfSearch;
@@ -3996,7 +3914,7 @@ function initPdfSearch() {
 function togglePdfSearch() { pdfSearchOpen ? closePdfSearch() : openPdfSearch(); }
 function openPdfSearch() {
   const isPdf = state.source.type === 'pdf' && state.pdfDoc;
-  if (!isPdf) { showToast('📷', 'Recherche texte indisponible'); return; }
+  if (!isPdf) { showToast('📷', t('search.noText')); return; }
   pdfSearchOpen = true;
   document.getElementById('pdfSearchBar').classList.add('show');
   document.getElementById('btnPdfSearch').classList.add('active');
@@ -4015,7 +3933,7 @@ function clearSearchHighlights() {
   searchMatches = [];
   searchIndex = -1;
   const el = document.getElementById('pdfSearchResults');
-  if (el) el.textContent = '0 résultat';
+  if (el) el.textContent = t('search.notFound');
 }
 function runPdfSearch(query) {
   clearSearchHighlights();
@@ -4032,7 +3950,7 @@ function runPdfSearch(query) {
       }
     });
   }
-  document.getElementById('pdfSearchResults').textContent = `${searchMatches.length} résultat${searchMatches.length > 1 ? 's' : ''}`;
+  document.getElementById('pdfSearchResults').textContent = t('search.results', { n: searchMatches.length });
   if (searchMatches.length > 0) { searchIndex = 0; highlightCurrentMatch(); }
 }
 function highlightCurrentMatch() {
@@ -4052,11 +3970,10 @@ function initThumbnails() {
   sidebar.id = 'thumbnailSidebar';
   sidebar.innerHTML = `
     <div class="thumb-header">
-      <span>📑 Pages</span>
+      <span>📑 ${t('toolbar.thumbnails')}</span>
       <button id="thumbClose">✕</button>
     </div>
-    <div id="thumbList"></div>
-  `;
+    <div id="thumbList"></div>`;
   document.body.appendChild(sidebar);
   document.getElementById('thumbClose').onclick = toggleThumbnailSidebar;
   const btn = document.getElementById('btnThumbnails');
@@ -4081,7 +3998,7 @@ function buildThumbnails() {
     if (i === state.currentPage) item.classList.add('active');
     const num = document.createElement('div');
     num.className = 'thumb-num';
-    num.textContent = `Page ${i}`;
+    num.textContent = `${t('button.pdf')} ${i}`;
     item.appendChild(num);
     const pdfCanvas = container.querySelector('.pdf-canvas');
     const thumbCanvas = document.createElement('canvas');
@@ -4123,7 +4040,7 @@ function initPresentation() {
     if (toolButtons.pen) toolButtons.pen.classList.add('active');
     document.getElementById('presentPen').classList.add('active');
     document.getElementById('presentEraser').classList.remove('active');
-    showToast('✏️', 'Stylo activé');
+    showToast('✏️', t('toolbar.pen'));
   };
   document.getElementById('presentEraser').onclick = () => {
     state.tool = 'eraser';
@@ -4131,11 +4048,11 @@ function initPresentation() {
     if (toolButtons.eraser) toolButtons.eraser.classList.add('active');
     document.getElementById('presentEraser').classList.add('active');
     document.getElementById('presentPen').classList.remove('active');
-    showToast('🧽', 'Gomme activée');
+    showToast('🧽', t('toolbar.eraser'));
   };
 }
 function enterPresentation() {
-  if (!state.numPages) { alert('Charge un cahier.'); return; }
+  if (!state.numPages) { alert(t('message.noDocument')); return; }
   presentation.active = true;
   document.body.classList.add('presentation-mode');
   const help = document.getElementById('keyboardHelp');
@@ -4145,7 +4062,7 @@ function enterPresentation() {
   document.addEventListener('keydown', handlePresentationKey);
   document.addEventListener('mousemove', handleSpotlightMove);
   setTimeout(() => { document.getElementById('presentPen')?.classList.add('active'); }, 100);
-  showToast('🖥️', 'Mode présentation');
+  showToast('🖥️', t('presentation.mode'));
 }
 function exitPresentation() {
   presentation.active = false; presentation.spotlight = false;
@@ -4154,7 +4071,7 @@ function exitPresentation() {
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   document.removeEventListener('keydown', handlePresentationKey);
   document.removeEventListener('mousemove', handleSpotlightMove);
-  showToast('👋', 'Mode normal');
+  showToast('👋', t('action.close'));
 }
 function updatePresentPageInfo() {
   const el = document.getElementById('presentPageInfo');
@@ -4224,12 +4141,12 @@ function showInstallButton() {
   if (document.getElementById('btnInstallPwa') || isPwaInstalled()) return;
   const btn = document.createElement('button');
   btn.id = 'btnInstallPwa';
-  btn.innerHTML = '⬇️ Installer l\'appli';
+  btn.innerHTML = '⬇️ ' + t('button.install');
   btn.onclick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') { showToast('📱', 'Application installée !'); btn.remove(); }
+    if (outcome === 'accepted') { showToast('📱', t('message.success')); btn.remove(); }
     deferredPrompt = null;
   };
   document.body.appendChild(btn);
@@ -4287,10 +4204,9 @@ function initPageNavigation() {
     pageJumpInput.addEventListener('blur', jumpToTypedPage);
     pageJumpInput.addEventListener('focus', () => pageJumpInput.select());
   }
-  // Mode 2 pages
   document.getElementById('btnTwoPages').onclick = () => {
     if (window.innerWidth < 700 && window.innerHeight > window.innerWidth) {
-      showToast('📱', 'Tourne ton appareil en paysage');
+      showToast('📱', t('toolbar.twoPages'));
       return;
     }
     state.twoPages = !state.twoPages;
@@ -4303,13 +4219,11 @@ function initPageNavigation() {
       state.zoom = Math.max(0.35, maxZoom);
     } else { state.zoom = 1; }
     applyZoom();
-    showToast(state.twoPages ? '📖' : '📄', state.twoPages ? 'Mode 2 pages' : 'Mode 1 page');
+    showToast(state.twoPages ? '📖' : '📄', t('toolbar.twoPages'));
   };
-  // Zoom
   document.getElementById('zoomIn').onclick = () => { state.zoom = Math.min(3, state.zoom + 0.2); applyZoom(); };
   document.getElementById('zoomOut').onclick = () => { state.zoom = Math.max(0.4, state.zoom - 0.2); applyZoom(); };
   document.getElementById('zoomReset').onclick = () => { state.zoom = 1; applyZoom(); };
-  // Scroll → maj page courante
   window.addEventListener('scroll', () => {
     if (!state.numPages) return;
     const containers = document.getElementById('viewer').querySelectorAll('.page-container');
@@ -4340,21 +4254,11 @@ function saveLogo(dataURL) {
 function applyLogo() {
   const box = document.getElementById('schoolLogo');
   const emptyBox = document.getElementById('emptyLogo');
-  
   if (box) {
-    if (state.schoolLogo) {
-      box.innerHTML = `<img src="${state.schoolLogo}" alt="Logo">`;
-    } else {
-      box.innerHTML = '<span class="fallback">CNA</span>';
-    }
+    box.innerHTML = state.schoolLogo ? `<img src="${state.schoolLogo}" alt="Logo">` : '<span class="fallback">CNA</span>';
   }
-  
   if (emptyBox) {
-    if (state.schoolLogo) {
-      emptyBox.innerHTML = `<img src="${state.schoolLogo}" alt="Logo">`;
-    } else {
-      emptyBox.innerHTML = '<span>CNA</span>';
-    }
+    emptyBox.innerHTML = state.schoolLogo ? `<img src="${state.schoolLogo}" alt="Logo">` : '<span>CNA</span>';
   }
 }
 function initLogo() {
@@ -4367,8 +4271,8 @@ function initLogo() {
       const dataURL = await readAsDataURL(f);
       const compressed = await compressPNG(dataURL, 256);
       saveLogo(compressed);
-      showToast('🎓', 'Logo mis à jour');
-    } catch (err) { alert('Erreur logo : ' + err.message); }
+      showToast('🎓', t('message.saved'));
+    } catch (err) { alert(t('message.error') + ' : ' + err.message); }
     e.target.value = '';
   });
 }
@@ -4378,72 +4282,55 @@ function initLogo() {
    ═══════════════════════════════════════════════════════════ */
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    // ═══ Progression du splash ═══
-    SplashScreen.update(5, 'Initialisation...');
+    SplashScreen.update(5, t('splash.init'));
+    await I18N.init();
+    SplashScreen.update(10, t('splash.theme'));
 
-// ⚡ Initialiser i18n EN PREMIER
-await I18N.init();
-SplashScreen.update(10, t('splash.theme'));
+    const langToggle = document.getElementById('langToggle');
+    if (langToggle) {
+      langToggle.onclick = () => I18N.openPicker();
+      let pressTimer;
+      langToggle.addEventListener('mousedown', () => {
+        pressTimer = setTimeout(() => I18N.next(), 800);
+      });
+      langToggle.addEventListener('mouseup', () => clearTimeout(pressTimer));
+      langToggle.addEventListener('mouseleave', () => clearTimeout(pressTimer));
+    }
 
-// Bouton langue
-const langToggle = document.getElementById('langToggle');
-if (langToggle) {
-  langToggle.onclick = () => I18N.openPicker();
-  // Long press → cycle rapide
-  let pressTimer;
-  langToggle.addEventListener('mousedown', () => {
-    pressTimer = setTimeout(() => I18N.next(), 800);
-  });
-  langToggle.addEventListener('mouseup', () => clearTimeout(pressTimer));
-  langToggle.addEventListener('mouseleave', () => clearTimeout(pressTimer));
-}
-    
-    // Thème
     initTheme();
     document.getElementById('themeToggle').onclick = toggleTheme;
-    
+
     SplashScreen.update(15, t('splash.theme'));
 
-    // Niveau
     const currentLevel = getCurrentLevel();
     applyLevel(currentLevel);
     document.getElementById('btnLevel').onclick = () => openLevelPicker(true);
-    
+
     SplashScreen.update(25, t('splash.levels'));
 
-    // Outils de dessin
     initToolButtons();
     initDrawColorsAndSizes();
     renderStickers();
-    
+
     SplashScreen.update(40, t('splash.tools'));
 
-    // Profil
     loadProfile();
     document.getElementById('profileBtn').onclick = openProfileModal;
-
-    // Logo
     initLogo();
 
-    // Matières
     updateSubjectBadge();
     document.getElementById('subjectBadge').onclick = openSubjectPicker;
     document.getElementById('btnSubject').onclick = openSubjectPicker;
-    
-   SplashScreen.update(50, t('splash.profile'));
 
-    // Sélection texte / voix
+    SplashScreen.update(50, t('splash.profile'));
+
     initTextSelection();
-
-    // Chargement PDF / images
     initPdfLoader();
     initImageLoaders();
-    
+
     SplashScreen.update(65, t('splash.pdf'));
 
-    // Collage
     initClips();
-    
     document.getElementById('scissorsFileInput').addEventListener('change', async (e) => {
       const f = e.target.files[0];
       if (!f) return;
@@ -4452,56 +4339,33 @@ if (langToggle) {
       e.target.value = '';
     });
 
-    // Outils pédagogiques
     initTools();
-    
     SplashScreen.update(80, t('splash.pedago'));
 
-    // Recherche PDF
     initPdfSearch();
-
-    // Miniatures
     initThumbnails();
-
-    // Historique / sauvegarde
     initHistory();
-    
+
     SplashScreen.update(90, t('splash.history'));
 
-    // Email
     document.getElementById('btnMailQuick').onclick = () => sendByEmail();
-
-    // URL
     document.getElementById('btnUrl').onclick = openUrlModal;
     document.getElementById('btnUrlHome').onclick = openUrlModal;
-
-    // Bibliothèque
     document.getElementById('btnLibrary').onclick = openLibraryModal;
     document.getElementById('btnLibraryHome').onclick = openLibraryModal;
 
-    // Partage
     initShare();
-
-    // Fond personnalisé
     initCustomBg();
-
-    // Verrou parental
     initParentalLock();
 
-    // Scan intelligent
     document.getElementById('btnSmartScan').onclick = startSmartScan;
-
-    // Mode présentation
     initPresentation();
-
-    // Navigation pages
     initPageNavigation();
 
-    // Undo/Redo/Clear
     document.getElementById('btnUndo').onclick = undoGlobal;
     document.getElementById('btnRedo').onclick = redoGlobal;
     document.getElementById('btnClear').onclick = () => {
-      if (!confirm('Effacer tous les dessins de cette page ?')) return;
+      if (!confirm(t('message.confirmClearPage'))) return;
       const data = state.drawData[state.currentPage];
       if (!data || !data.strokes?.length) return;
       const prevStrokes = [...data.strokes];
@@ -4511,25 +4375,18 @@ if (langToggle) {
       scheduleSave();
     };
 
-    // PWA
     initPWA();
-
-    // Raccourcis clavier
     initKeyboardShortcuts();
-    
-    SplashScreen.update(95, t('splash.final'));
-      applyAria();
 
-    // Footer
+    SplashScreen.update(95, t('splash.final'));
+    applyAria();
+
     document.getElementById('footerTitle').textContent = ACHIM.produit;
     document.getElementById('footerVersion').textContent = 'v' + ACHIM.version;
     document.getElementById('footerEmail').textContent = ACHIM.email;
     document.getElementById('footerEmail').href = 'mailto:' + ACHIM.email;
-    document.getElementById('accueilSubtitle').textContent = `Développé par ${ACHIM.nom} • Tous niveaux`;
-    document.getElementById('accueilFooter').innerHTML = `💾 Sauvegarde auto • 📤 Export PDF • 📧 Envoi à <strong>${ACHIM.email}</strong>`;
     document.title = ACHIM.produit;
 
-    // Restaurer mode 2 pages
     try {
       const saved = localStorage.getItem('cahier-twoPages') === 'true';
       if (saved && window.innerWidth >= 700) {
@@ -4539,17 +4396,15 @@ if (langToggle) {
       }
     } catch {}
 
-    // ═══ Tout est chargé : cacher le splash ═══
     SplashScreen.update(100, t('splash.ready'));
     await SplashScreen.hide();
 
-    // Restaurer autosave (après le splash, pour ne pas bloquer)
     setTimeout(() => {
       const autosave = loadAutoSave();
       if (autosave && autosave.savedAt && (autosave.numPages || 0) > 0) {
         const age = Math.round((Date.now() - autosave.savedAt) / 60000);
         const ageTxt = age < 60 ? `il y a ${age} min` : `il y a ${Math.round(age/60)} h`;
-        if (confirm(`📂 Un travail non terminé (${ageTxt}).\nVoulez-vous le reprendre ?`)) {
+        if (confirm(t('message.restored') + ` (${ageTxt}).`)) {
           restoreAutoSave(autosave);
         } else {
           localStorage.removeItem(AUTOSAVE_KEY);
@@ -4557,22 +4412,15 @@ if (langToggle) {
       }
     }, 400);
 
-    // Lien partagé
     setTimeout(tryLoadSharedLink, 500);
-
-    // Sélecteur de niveau première visite
     setTimeout(() => openLevelPicker(false), 600);
 
+    initAccueil();
   } catch (err) {
     console.error('❌ Erreur au démarrage :', err);
-    SplashScreen.showError(
-      '⚠️ Une erreur est survenue au chargement.',
-      () => location.reload()
-    );
+    SplashScreen.showError(t('splash.error'), () => location.reload());
   }
-    // Page d'accueil
-    initAccueil();
-  });
+});
 
 /* Fond personnalisé */
 const CUSTOM_BG_KEY = 'cahier-achim-custom-bg';
@@ -4608,7 +4456,7 @@ function initCustomBg() {
       if (state.bgData[page]) drawBackground(c, state.bgData[page]);
     });
     document.getElementById('customBgModal').style.display = 'none';
-    showToast('🗑️', 'Fond retiré');
+    showToast('🗑️', t('customBg.removed'));
   };
 }
 function applyCustomBg(type, value) {
@@ -4617,98 +4465,64 @@ function applyCustomBg(type, value) {
     if (type === 'color') { c.style.background = value; c.style.backgroundImage = ''; }
     else { c.style.backgroundImage = `url(${value})`; c.style.backgroundSize = 'cover'; c.style.backgroundPosition = 'center'; }
   });
-  showToast('🎨', 'Fond appliqué');
+  showToast('🎨', t('customBg.applied'));
 }
 
 window.addEventListener('beforeunload', () => {
   if (Object.keys(state.drawData).length > 0) saveLocalAuto();
 });
-/* ═══════════════════════════════════════════════════════════
-   ACCORDÉONS PAGE D'ACCUEIL
-   ═══════════════════════════════════════════════════════════ */
-const ACC_OPEN_KEY = 'cahier-achim-acc-open';
 
+/* ACCORDÉONS */
+const ACC_OPEN_KEY = 'cahier-achim-acc-open';
 function initAccordions() {
   const accordions = document.querySelectorAll('#accueilAccordions .accordeon');
   if (accordions.length === 0) return;
-
-  // Restaurer les accordéons ouverts
   try {
     const saved = JSON.parse(localStorage.getItem(ACC_OPEN_KEY) || '[]');
     accordions.forEach(acc => {
-      if (saved.includes(acc.dataset.acc)) {
-        acc.open = true;
-      }
+      if (saved.includes(acc.dataset.acc)) acc.open = true;
     });
   } catch {}
-
-  // Optionnel : un seul ouvert à la fois (décommenter pour activer)
   accordions.forEach(acc => {
-     acc.addEventListener('toggle', () => {
+    acc.addEventListener('toggle', () => {
       if (acc.open) {
         accordions.forEach(other => {
           if (other !== acc) other.open = false;
-         });
+        });
       }
     });
-   });
-
-  // Sauvegarder l'état
+  });
   accordions.forEach(acc => {
     acc.addEventListener('toggle', () => {
       try {
-        const open = Array.from(accordions)
-          .filter(a => a.open)
-          .map(a => a.dataset.acc);
+        const open = Array.from(accordions).filter(a => a.open).map(a => a.dataset.acc);
         localStorage.setItem(ACC_OPEN_KEY, JSON.stringify(open));
       } catch {}
     });
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   GESTION DU CHARGEMENT HORS LIGNE
-   ═══════════════════════════════════════════════════════════ */
-window.addEventListener('offline', () => {
-  console.log('📡 Mode hors ligne activé');
-  // Le splash reste caché, l'appli fonctionne en cache
-});
+window.addEventListener('offline', () => { console.log('📡 Offline'); });
 
-// Si l'appli ne charge pas (CDN inaccessible)
 window.addEventListener('error', (e) => {
   if (e.target && e.target.tagName === 'SCRIPT') {
-    console.warn('⚠️ Erreur de chargement de script:', e.target.src);
-    // Si c'est un script CDN critique qui échoue
+    console.warn('⚠️ Script error:', e.target.src);
     if (e.target.src.includes('pdf.js') || e.target.src.includes('jspdf')) {
-      SplashScreen.showError(
-        '⚠️ Impossible de charger les composants. Vérifie ta connexion.',
-        () => location.reload()
-      );
+      SplashScreen.showError(t('splash.error'), () => location.reload());
     }
   }
 }, true);
 
-/* ═══════════════════════════════════════════════════════════
-   SÉCURITÉ — Masquer le splash après 15 secondes max
-   ═══════════════════════════════════════════════════════════ */
 setTimeout(() => {
   const splash = document.getElementById('splash-screen');
   if (splash && !splash.classList.contains('hidden')) {
-    console.warn('⚠️ Splash forcé à se fermer (timeout 15s)');
+    console.warn('⚠️ Splash forcé');
     splash.classList.add('hidden');
     setTimeout(() => splash.remove(), 600);
   }
 }, 15000);
 
-/* ═══════════════════════════════════════════════════════════
-   PAGE D'ACCUEIL — Fonctions auxiliaires
-   ═══════════════════════════════════════════════════════════ */
-
-// Ouvre le guide complet (ou scroll vers un accordéon)
 function openAccGuide(accKey) {
-  // Si tu as un PDF de guide, ouvre-le
-  // Sinon, ouvre le guide en ligne
-  // Pour l'instant : ouvre l'accordéon correspondant
   const acc = document.querySelector(`.accordeon[data-acc="${accKey}"]`);
   if (acc) {
     acc.open = true;
@@ -4716,75 +4530,52 @@ function openAccGuide(accKey) {
   }
 }
 
-// Initialise la page d'accueil
 function initAccueil() {
-  // Met à jour les emails dans les accordéons et le footer
-  const email = ACHIM.email;
-  const accEmail = document.getElementById('accueilEmail');
-  if (accEmail) accEmail.textContent = email;
-  const footerEmail = document.getElementById('accueilFooterEmail');
-  if (footerEmail) footerEmail.textContent = email;
-  
-  // Met à jour le sous-titre
-  const subtitle = document.getElementById('accueilSubtitle');
-  if (subtitle) subtitle.textContent = `Développé par ${ACHIM.nom} • Tous niveaux`;
-  
-  // Init accordéons
   initAccordions();
 }
-/* ═══════════════════════════════════════════════════════════
-   ACCESSIBILITÉ — ARIA
-   ═══════════════════════════════════════════════════════════ */
+
 function applyAria() {
-  // Attributs ARIA sur les boutons qui n'en ont pas
   const ariaMap = {
-    'toolPentagon': 'Pentagone',
-    'toolHexagon': 'Hexagone',
-    'toolHeart': 'Cœur',
-    'toolArrow': 'Flèche',
-    'toolSpeech': 'Bulle de bande dessinée',
-    'toolMusic': 'Note de musique',
-    'btnTextSelect': 'Activer la lecture vocale des textes',
-    'penMagic': 'Pinceau magique multicolore',
-    'penNeon': 'Pinceau néon brillant',
-    'btnLevel': 'Changer de niveau scolaire',
-    'btnHistory': 'Voir l\'historique des travaux',
-    'btnMailQuick': 'Envoyer le travail à l\'école',
-    'btnPresent': 'Activer le mode présentation',
-    'profileBtn': 'Modifier le profil élève',
-    'themeToggle': 'Changer de thème (clair/sombre)',
-    'btnUrl': 'Ouvrir depuis un lien web',
-    'btnLibrary': 'Voir la bibliothèque de ressources',
-    'btnShareLink': 'Partager le travail par lien',
-    'btnSmartScan': 'Scanner une feuille avec la caméra',
-    'btnCustomBg': 'Personnaliser le fond de page',
-    'btnParentalLock': 'Activer ou désactiver le verrou parental',
-    'btnGuideLetter': 'Afficher le guide des lettres',
-    'btnGuideNumber': 'Afficher le guide des chiffres',
-    'btnRuler': 'Afficher une règle',
-    'btnProtractor': 'Afficher un rapporteur',
-    'btnTimer': 'Afficher un minuteur',
-    'btnRecognize': 'Reconnaître un chiffre ou une lettre à voix haute',
-    'btnSubject': 'Choisir la matière',
-    'btnPdfSearch': 'Rechercher dans le PDF',
-    'zoomIn': 'Agrandir',
-    'zoomOut': 'Réduire',
-    'zoomReset': 'Réinitialiser le zoom'
+    'toolPentagon': 'toolbar.pentagon',
+    'toolHexagon': 'toolbar.hexagon',
+    'toolHeart': 'toolbar.heart',
+    'toolArrow': 'toolbar.arrow',
+    'toolSpeech': 'toolbar.speech',
+    'toolMusic': 'toolbar.music',
+    'btnTextSelect': 'toolbar.listen',
+    'penMagic': 'toolbar.magic',
+    'penNeon': 'toolbar.neon',
+    'btnLevel': 'toolbar.level',
+    'btnHistory': 'toolbar.history',
+    'btnMailQuick': 'toolbar.send',
+    'btnPresent': 'toolbar.present',
+    'profileBtn': 'toolbar.profile',
+    'themeToggle': 'toolbar.theme',
+    'btnUrl': 'toolbar.url',
+    'btnLibrary': 'toolbar.library',
+    'btnShareLink': 'toolbar.share',
+    'btnSmartScan': 'toolbar.scan',
+    'btnCustomBg': 'toolbar.customBg',
+    'btnParentalLock': 'toolbar.parental',
+    'btnGuideLetter': 'pedago.letters',
+    'btnGuideNumber': 'pedago.numbers',
+    'btnRuler': 'pedago.ruler',
+    'btnProtractor': 'pedago.protractor',
+    'btnTimer': 'pedago.timer',
+    'btnRecognize': 'pedago.recognize',
+    'btnSubject': 'toolbar.subject',
+    'btnPdfSearch': 'toolbar.search',
+    'zoomIn': 'toolbar.zoomIn',
+    'zoomOut': 'toolbar.zoomOut',
+    'zoomReset': 'toolbar.zoomReset'
   };
-  
-  Object.entries(ariaMap).forEach(([id, label]) => {
+  Object.entries(ariaMap).forEach(([id, key]) => {
     const el = document.getElementById(id);
     if (el && !el.getAttribute('aria-label')) {
-      el.setAttribute('aria-label', label);
+      el.setAttribute('aria-label', t(key));
     }
   });
-  
-  // Le viewer doit être focusable
   const viewer = document.getElementById('viewer');
-  if (viewer && !viewer.hasAttribute('tabindex')) {
-    viewer.setAttribute('tabindex', '-1');
-  }
-  
-  // Les modales qui s'ouvrent doivent recevoir le focus
+  if (viewer && !viewer.hasAttribute('tabindex')) viewer.setAttribute('tabindex', '-1');
   console.log('✅ ARIA appliqué');
 }
