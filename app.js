@@ -108,22 +108,19 @@ const I18N = {
      
   },
 
-   t(key, vars = {}) {
+     t(key, vars = {}) {
     let text = this.translations[key];
     if (!text) {
-      // Fallback : essaie le français
       if (this.currentLang !== 'fr' && this.cache.fr) {
         text = this.cache.fr[key];
       }
-      // Si toujours rien, retourne la clé lisible
       if (!text) {
         console.warn(`[i18n] Clé manquante : "${key}" (lang: ${this.currentLang})`);
         return key;
       }
     }
-    // Interpolation {name}, {n}, etc.
     return text.replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m);
-  }
+  },
 
   apply() {
     // Textes normaux
