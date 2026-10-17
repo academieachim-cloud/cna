@@ -103,9 +103,22 @@ const I18N = {
     window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
   },
 
-  t(key) {
-    return this.translations[key] || key;
-  },
+   t(key, vars = {}) {
+    let text = this.translations[key];
+    if (!text) {
+      // Fallback : essaie le français
+      if (this.currentLang !== 'fr' && this.cache.fr) {
+        text = this.cache.fr[key];
+      }
+      // Si toujours rien, retourne la clé lisible
+      if (!text) {
+        console.warn(`[i18n] Clé manquante : "${key}" (lang: ${this.currentLang})`);
+        return key;
+      }
+    }
+    // Interpolation {name}, {n}, etc.
+    return text.replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m);
+  }
 
   apply() {
     // Textes normaux
@@ -203,7 +216,7 @@ const I18N = {
 };
 
 // Raccourci global
-function t(key) { return I18N.t(key); }
+function t(key, vars = {}) { return I18N.t(key, vars); }
 /* ═══════════════════════════════════════════════════════════
    SPLASH SCREEN — Contrôle de l'écran de chargement
    ═══════════════════════════════════════════════════════════ */
