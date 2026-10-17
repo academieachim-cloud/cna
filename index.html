@@ -28,7 +28,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      SPLASH SCREEN — Écran de chargement
      ═══════════════════════════════════════════════════════════ -->
-<div id="splash-screen" role="status" aria-live="polite" aria-label="Chargement de l'application">
+<div id="splash-screen" role="status" aria-live="polite" aria-label="Chargement de l'application" data-i18n-aria="message.loading">
   <div class="splash-content">
     
     <!-- Logo animé -->
@@ -57,7 +57,7 @@
 <!-- ═══════════════════════════════════════════════════════════
      MENU CONTEXTUEL TEXTE
      ═══════════════════════════════════════════════════════════ -->
-<div id="textContextMenu" role="menu" aria-label="Actions sur le texte sélectionné">
+<div id="textContextMenu" role="menu" aria-label="Actions sur le texte sélectionné" data-i18n-aria="context.speak">
   <button class="primary-action" id="ctxSpeak" role="menuitem" data-i18n="context.speak">🗣️ Écouter</button>
   <button id="ctxTranslate" role="menuitem" data-i18n="context.translate">🌐 Traduire</button>
   <button id="ctxWeb" role="menuitem" data-i18n="context.search">🔍 Rechercher</button>
@@ -69,122 +69,112 @@
      ═══════════════════════════════════════════════════════════ -->
 <div id="toolbar" style="display:none" role="toolbar" aria-label="Barre d'outils principale" data-i18n-aria="toolbar.label">
   
-  <div id="schoolLogo" title="Cliquer pour personnaliser le logo" role="button" tabindex="0" aria-label="Logo de l'école — cliquer pour personnaliser">
+  <div id="toolbar" style="display:none" role="toolbar" aria-label="Barre d'outils principale" data-i18n-aria="toolbar.label">
+
+  <div id="schoolLogo" title="Cliquer pour personnaliser le logo" role="button" tabindex="0" aria-label="Logo de l'école" data-i18n-title="toolbar.profile" data-i18n-aria="toolbar.profile">
     <span class="fallback">CNA</span>
   </div>
-  
-  <!-- Outils de dessin (générés dynamiquement en JS) -->
+
+  <!-- Outils de dessin (générés dynamiquement en JS — voir étape 4) -->
   <div class="tool-group" id="drawToolsGroup" role="group" aria-label="Outils de dessin"></div>
-  
-  <!-- Pinceaux spéciaux -->
+
   <div class="tool-group" role="group" aria-label="Pinceaux spéciaux">
-    <button class="tool-btn small" id="penMagic" title="Pinceau magique" aria-label="Pinceau magique multicolore">🌈</button>
-    <button class="tool-btn small" id="penNeon" title="Néon" aria-label="Pinceau néon brillant">💫</button>
+    <button class="tool-btn small" id="penMagic" title="Pinceau magique" aria-label="Pinceau magique multicolore" data-i18n-title="toolbar.magic" data-i18n-aria="toolbar.magic">🌈</button>
+    <button class="tool-btn small" id="penNeon" title="Néon" aria-label="Pinceau néon brillant" data-i18n-title="toolbar.neon" data-i18n-aria="toolbar.neon">💫</button>
   </div>
-  
-  <!-- Palette de couleurs (générée dynamiquement en JS) -->
+
   <div id="colorPalette" role="group" aria-label="Palette de couleurs"></div>
-  
-  <!-- Tailles de trait (générées dynamiquement en JS) -->
   <div id="sizePicker" role="group" aria-label="Taille du trait"></div>
-  
-  <!-- Annuler / Rétablir / Effacer -->
+
   <div class="tool-group" role="group" aria-label="Actions sur le dessin">
-    <button class="tool-btn small" id="btnUndo" title="Annuler" aria-label="Annuler la dernière action">↶</button>
-    <button class="tool-btn small" id="btnRedo" title="Rétablir" aria-label="Rétablir l'action annulée">↷</button>
-    <button class="tool-btn small" id="btnClear" title="Effacer page" aria-label="Effacer tous les dessins de la page">🗑️</button>
+    <button class="tool-btn small" id="btnUndo" title="Annuler" aria-label="Annuler la dernière action" data-i18n-title="toolbar.undo" data-i18n-aria="toolbar.undo">↶</button>
+    <button class="tool-btn small" id="btnRedo" title="Rétablir" aria-label="Rétablir l'action annulée" data-i18n-title="toolbar.redo" data-i18n-aria="toolbar.redo">↷</button>
+    <button class="tool-btn small" id="btnClear" title="Effacer page" aria-label="Effacer tous les dessins de la page" data-i18n-title="toolbar.clear" data-i18n-aria="toolbar.clear">🗑️</button>
   </div>
-  
-  <!-- Navigation pages -->
+
   <div class="tool-group" role="group" aria-label="Navigation entre les pages">
-    <button class="tool-btn small" id="btnPrev" title="Page précédente" aria-label="Aller à la page précédente">◀</button>
-    <input type="number" id="pageJumpInput" min="1" value="1" title="Aller à la page N" aria-label="Numéro de page — appuyer sur Entrée pour y aller">
+    <button class="tool-btn small" id="btnPrev" title="Page précédente" aria-label="Aller à la page précédente" data-i18n-title="toolbar.prev" data-i18n-aria="toolbar.prev">◀</button>
+    <input type="number" id="pageJumpInput" min="1" value="1" title="Aller à la page N" aria-label="Numéro de page" data-i18n-title="toolbar.pageJump" data-i18n-aria="toolbar.pageJump">
     <span id="pageInfo" aria-live="polite">/1</span>
-    <button class="tool-btn small" id="btnNext" title="Page suivante" aria-label="Aller à la page suivante">▶</button>
-    <button class="tool-btn small" id="btnTwoPages" title="2 pages" aria-label="Afficher deux pages côte à côte">📖</button>
-    <button class="tool-btn" id="btnThumbnails" title="Miniatures" aria-label="Afficher les miniatures des pages">📑</button>
-    <button class="tool-btn" id="btnPdfSearch" title="Rechercher (Ctrl+F)" aria-label="Rechercher dans le PDF" style="display:none">🔍</button>
+    <button class="tool-btn small" id="btnNext" title="Page suivante" aria-label="Aller à la page suivante" data-i18n-title="toolbar.next" data-i18n-aria="toolbar.next">▶</button>
+    <button class="tool-btn small" id="btnTwoPages" title="2 pages" aria-label="Afficher deux pages côte à côte" data-i18n-title="toolbar.twoPages" data-i18n-aria="toolbar.twoPages">📖</button>
+    <button class="tool-btn" id="btnThumbnails" title="Miniatures" aria-label="Afficher les miniatures" data-i18n-title="toolbar.thumbnails" data-i18n-aria="toolbar.thumbnails">📑</button>
+    <button class="tool-btn" id="btnPdfSearch" title="Rechercher (Ctrl+F)" aria-label="Rechercher dans le PDF" data-i18n-title="toolbar.search" data-i18n-aria="toolbar.search" style="display:none">🔍</button>
   </div>
-  
-  <!-- Sauvegarde -->
+
   <div class="tool-group" style="background:rgba(39,174,96,0.15)" role="group" aria-label="Sauvegarde et export">
-    <button class="tool-btn" id="btnSaveWork" title="Enregistrer" aria-label="Enregistrer le travail">💾</button>
-    <button class="tool-btn" id="btnLoadWork" title="Charger .cahier" aria-label="Charger un fichier de travail .cahier">📂</button>
-    <button class="tool-btn" id="btnExportWork" title="Exporter PDF" aria-label="Exporter en PDF">📤</button>
+    <button class="tool-btn" id="btnSaveWork" title="Enregistrer" aria-label="Enregistrer le travail" data-i18n-title="toolbar.save" data-i18n-aria="toolbar.save">💾</button>
+    <button class="tool-btn" id="btnLoadWork" title="Charger .cahier" aria-label="Charger un fichier .cahier" data-i18n-title="toolbar.load" data-i18n-aria="toolbar.load">📂</button>
+    <button class="tool-btn" id="btnExportWork" title="Exporter PDF" aria-label="Exporter en PDF" data-i18n-title="toolbar.export" data-i18n-aria="toolbar.export">📤</button>
   </div>
-  
-  <!-- Sources -->
+
   <div class="tool-group" role="group" aria-label="Sources externes">
-    <button class="tool-btn" id="btnUrl" title="Ouvrir depuis un lien web" aria-label="Ouvrir depuis un lien web">🌐</button>
-    <button class="tool-btn" id="btnLibrary" title="Bibliothèque" aria-label="Voir la bibliothèque de ressources">📚</button>
-    <button class="tool-btn" id="btnShareLink" title="Partager par lien" aria-label="Partager le travail par lien">🔗</button>
-    <button class="tool-btn" id="btnSmartScan" title="Scanner une feuille" aria-label="Scanner une feuille avec la caméra">📸</button>
-    <button class="tool-btn" id="btnCustomBg" title="Fond personnalisé" aria-label="Personnaliser le fond de page">🎨</button>
-    <button class="tool-btn" id="btnParentalLock" title="Verrou parental" aria-label="Activer ou désactiver le verrou parental">🔐</button>
+    <button class="tool-btn" id="btnUrl" title="Ouvrir depuis un lien web" aria-label="Ouvrir depuis un lien web" data-i18n-title="toolbar.url" data-i18n-aria="toolbar.url">🌐</button>
+    <button class="tool-btn" id="btnLibrary" title="Bibliothèque" aria-label="Voir la bibliothèque" data-i18n-title="toolbar.library" data-i18n-aria="toolbar.library">📚</button>
+    <button class="tool-btn" id="btnShareLink" title="Partager par lien" aria-label="Partager par lien" data-i18n-title="toolbar.share" data-i18n-aria="toolbar.share">🔗</button>
+    <button class="tool-btn" id="btnSmartScan" title="Scanner une feuille" aria-label="Scanner une feuille" data-i18n-title="toolbar.scan" data-i18n-aria="toolbar.scan">📸</button>
+    <button class="tool-btn" id="btnCustomBg" title="Fond personnalisé" aria-label="Personnaliser le fond" data-i18n-title="toolbar.customBg" data-i18n-aria="toolbar.customBg">🎨</button>
+    <button class="tool-btn" id="btnParentalLock" title="Verrou parental" aria-label="Verrou parental" data-i18n-title="toolbar.parental" data-i18n-aria="toolbar.parental">🔐</button>
   </div>
-  
-  <!-- Import fichiers -->
+
   <div class="tool-group" role="group" aria-label="Import de fichiers">
-    <label for="fileInput" class="tool-btn" title="Ouvrir PDF" aria-label="Ouvrir un fichier PDF">📄</label>
+    <label for="fileInput" class="tool-btn" title="Ouvrir PDF" aria-label="Ouvrir un PDF" data-i18n-title="toolbar.pdf" data-i18n-aria="toolbar.pdf">📄</label>
     <input type="file" id="fileInput" accept="application/pdf" hidden>
-    <label for="imgInput" class="tool-btn" title="Ajouter JPG" aria-label="Ajouter une image">🖼️</label>
+    <label for="imgInput" class="tool-btn" title="Ajouter JPG" aria-label="Ajouter une image" data-i18n-title="toolbar.addImage" data-i18n-aria="toolbar.addImage">🖼️</label>
     <input type="file" id="imgInput" accept="image/*" multiple hidden>
-    <label for="camInput" class="tool-btn" title="Photo" aria-label="Prendre une photo">📷</label>
+    <label for="camInput" class="tool-btn" title="Photo" aria-label="Prendre une photo" data-i18n-title="toolbar.photo" data-i18n-aria="toolbar.photo">📷</label>
     <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
     <input type="file" id="logoInput" accept="image/*" hidden aria-label="Choisir un logo">
     <input type="file" id="clipFileInput" accept="image/png,image/*" multiple hidden aria-label="Importer des images pour le collage">
     <input type="file" id="scissorsFileInput" accept="image/*" hidden aria-label="Importer une image à découper">
   </div>
-  
-  <!-- Actions rapides -->
+
   <div id="quickActions" role="group" aria-label="Actions rapides">
-    <button class="quick-btn" id="btnLevel" title="Changer de niveau" aria-label="Changer de niveau scolaire">
+    <button class="quick-btn" id="btnLevel" title="Changer de niveau" aria-label="Changer de niveau" data-i18n-title="toolbar.level" data-i18n-aria="toolbar.level">
       <span id="levelBadge">✏️ CP</span>
     </button>
-    <button class="quick-btn history" id="btnHistory" title="Historique" aria-label="Voir l'historique des travaux">
-      📚 <span data-i18n="toolbar.history">Historique</span>
+    <button class="quick-btn history" id="btnHistory" title="Historique" aria-label="Voir l'historique" data-i18n-title="toolbar.history" data-i18n-aria="toolbar.history">
+      📚 <span data-i18n="button.history">Historique</span>
     </button>
-    <button class="quick-btn mail" id="btnMailQuick" title="Envoyer" aria-label="Envoyer le travail à l'école">
+    <button class="quick-btn mail" id="btnMailQuick" title="Envoyer" aria-label="Envoyer le travail" data-i18n-title="toolbar.send" data-i18n-aria="toolbar.send">
       📧 <span data-i18n="toolbar.send">Envoyer</span>
     </button>
-    <button class="quick-btn present" id="btnPresent" title="Présenter" aria-label="Activer le mode présentation">
+    <button class="quick-btn present" id="btnPresent" title="Présenter" aria-label="Mode présentation" data-i18n-title="toolbar.present" data-i18n-aria="toolbar.present">
       🖥️ <span data-i18n="toolbar.present">Présenter</span>
     </button>
-    <button class="quick-btn profile" id="profileBtn" title="Profil" aria-label="Modifier le profil élève">
+    <button class="quick-btn profile" id="profileBtn" title="Profil" aria-label="Profil élève" data-i18n-title="toolbar.profile" data-i18n-aria="toolbar.profile">
       <span class="avatar" id="profileAvatar">?</span>
       <span id="profileName">Élève</span>
     </button>
-    
-    <!-- ⚡ BOUTON LANGUE -->
     <button id="langToggle" aria-label="Changer de langue" title="Changer de langue" data-i18n-aria="language.select" data-i18n-title="language.select">🌐</button>
-    
-    <button id="themeToggle" title="Changer de thème" aria-label="Changer de thème clair ou sombre">🌙</button>
+    <button id="themeToggle" title="Changer de thème" aria-label="Changer de thème" data-i18n-title="toolbar.theme" data-i18n-aria="toolbar.theme">🌙</button>
   </div>
+</div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
      BARRE PÉDAGOGIQUE
      ═══════════════════════════════════════════════════════════ -->
-<div id="pedagoBar" style="display:none" role="toolbar" aria-label="Outils pédagogiques">
+<div id="pedagoBar" style="display:none" role="toolbar" aria-label="Outils pédagogiques" data-i18n-aria="pedago.help">
   <span class="tool-label" data-i18n="pedago.background">Fond :</span>
   <button class="pedago-btn active" data-mode="none" data-i18n="pedago.white">✍️ Blanc</button>
   <button class="pedago-btn" data-mode="lines" data-i18n="pedago.lines">📝 Seyes</button>
   <button class="pedago-btn" data-mode="grid" data-i18n="pedago.grid">🔲 Grille</button>
   <button class="pedago-btn" data-mode="dots" data-i18n="pedago.dots">⠿ Pointillés</button>
   <span class="tool-label" data-i18n="pedago.help">Aide :</span>
-  <button class="pedago-btn" id="btnGuideLetter" aria-label="Afficher le guide des lettres" data-i18n="pedago.letters">🔤 Lettres</button>
-  <button class="pedago-btn" id="btnGuideNumber" aria-label="Afficher le guide des chiffres" data-i18n="pedago.numbers">🔢 Chiffres</button>
-  <button class="pedago-btn" id="btnRuler" aria-label="Afficher une règle" data-i18n="pedago.ruler">📐 Règle</button>
-  <button class="pedago-btn" id="btnProtractor" aria-label="Afficher un rapporteur" data-i18n="pedago.protractor">🔺 Rapporteur</button>
-  <button class="pedago-btn" id="btnTimer" aria-label="Afficher un minuteur" data-i18n="pedago.timer">⏱️ Minuteur</button>
-  <button class="pedago-btn" id="btnRecognize" aria-label="Reconnaître un chiffre ou une lettre à voix haute" data-i18n="pedago.recognize">👂 Reconnaître</button>
-  <button class="pedago-btn" id="btnSubject" aria-label="Choisir la matière" data-i18n="pedago.subject">🎨 Matière</button>
+  <button class="pedago-btn" id="btnGuideLetter" aria-label="Guide des lettres" data-i18n="pedago.letters" data-i18n-aria="pedago.letters">🔤 Lettres</button>
+  <button class="pedago-btn" id="btnGuideNumber" aria-label="Guide des chiffres" data-i18n="pedago.numbers" data-i18n-aria="pedago.numbers">🔢 Chiffres</button>
+  <button class="pedago-btn" id="btnRuler" aria-label="Règle" data-i18n="pedago.ruler" data-i18n-aria="pedago.ruler">📐 Règle</button>
+  <button class="pedago-btn" id="btnProtractor" aria-label="Rapporteur" data-i18n="pedago.protractor" data-i18n-aria="pedago.protractor">🔺 Rapporteur</button>
+  <button class="pedago-btn" id="btnTimer" aria-label="Minuteur" data-i18n="pedago.timer" data-i18n-aria="pedago.timer">⏱️ Minuteur</button>
+  <button class="pedago-btn" id="btnRecognize" aria-label="Reconnaître" data-i18n="pedago.recognize" data-i18n-aria="pedago.recognize">👂 Reconnaître</button>
+  <button class="pedago-btn" id="btnSubject" aria-label="Matière" data-i18n="pedago.subject" data-i18n-aria="pedago.subject">🎨 Matière</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
      BARRE COLLAGE
      ═══════════════════════════════════════════════════════════ -->
-<div id="collageBar" role="toolbar" aria-label="Atelier collage">
+<div id="collageBar" role="toolbar" aria-label="Atelier collage" data-i18n-aria="collage.title">
   <span class="collage-title" data-i18n="collage.title">✂️ Atelier collage</span>
   <button class="scissors" id="scissorsBtn" data-i18n="collage.cut">✂️ Découper</button>
   <button id="clipAdd" data-i18n="collage.chooseImage">🖼️ Choisir une image</button>
@@ -228,10 +218,10 @@
      TIMER
      ═══════════════════════════════════════════════════════════ -->
 <div id="timer" role="group" aria-label="Minuteur">
-  <button id="timerToggle" aria-label="Démarrer ou mettre en pause le minuteur">▶</button>
+  <button id="timerToggle" aria-label="Démarrer/pause" data-i18n-aria="timer.start" data-i18n-title="timer.start">▶</button>
   <span class="time" id="timerDisplay" aria-live="polite">02:00</span>
-  <button id="timerReset" aria-label="Réinitialiser le minuteur">⟲</button>
-  <button id="timerClose" aria-label="Fermer le minuteur">✕</button>
+  <button id="timerReset" aria-label="Réinitialiser" data-i18n-aria="timer.reset" data-i18n-title="timer.reset">⟲</button>
+  <button id="timerClose" aria-label="Fermer" data-i18n-aria="timer.close" data-i18n-title="timer.close">✕</button>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -319,10 +309,10 @@
       <!-- Accordéon 1 : Découvrir -->
       <details class="accordeon" data-acc="decouvrir">
         <summary>
-          <span class="acc-icon" aria-hidden="true">📖</span>
-          <span class="acc-title" data-i18n="acc.discover">Découvrir l'application</span>
-          <span class="acc-chevron" aria-hidden="true">▾</span>
-        </summary>
+  <span class="acc-icon" aria-hidden="true">📖</span>
+  <span class="acc-title" data-i18n="acc.discover">Découvrir l'application</span>
+  <span class="acc-chevron" aria-hidden="true">▾</span>
+</summary>
         <div class="acc-body">
           <div class="acc-text">
             <p data-i18n="acc.discover.text">Le <strong>Cahier Numérique ACHIM</strong> remplace les cahiers d'exercices papier. Il fonctionne sur téléphone, tablette ou ordinateur, <strong>avec ou sans Internet</strong>.</p>
@@ -535,7 +525,7 @@
   <div class="modal-content" style="max-width:420px">
     <h2 id="parentalLockTitle" style="margin-top:0">🔐 <span data-i18n="parental.title">Verrou parental</span></h2>
     <p id="parentalLockMsg" style="color:#7f8c8d;font-size:13px" data-i18n="parental.message">Entre le code à 4 chiffres.</p>
-    <input type="password" id="parentalPinInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" class="pin-input" aria-label="Code PIN à 4 chiffres">
+    <input type="password" id="parentalPinInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" class="pin-input" aria-label="Code PIN">
     <div class="actions-modal">
       <button class="secondary" id="parentalCancel" data-i18n="action.cancel">Annuler</button>
       <button class="primary" id="parentalConfirm" data-i18n="action.confirm">Valider</button>
@@ -580,14 +570,9 @@
   <div class="footer-content">
     <span>🎓 <strong id="footerTitle">Cahier Numérique ACHIM</strong> • <span id="footerVersion">v4.0</span></span>
     <span class="footer-badge" id="footerBadge" data-i18n="footer.allLevels">Tous niveaux</span>
-    <span>
-      <span data-i18n="footer.contact">Contact</span> : 
-      <a href="mailto:academie.achim@gmail.com" id="footerEmail">academie.achim@gmail.com</a>
-    </span>
+    <span><span data-i18n="footer.contact">Contact</span> : <a href="mailto:academie.achim@gmail.com" id="footerEmail">academie.achim@gmail.com</a></span>
   </div>
-  <div style="opacity:0.7;font-size:11px;margin-top:4px" id="footerCredit" data-i18n="footer.credit">
-    Développé par l'École ACHIM • Pour toutes les écoles
-  </div>
+  <div style="opacity:0.7;font-size:11px;margin-top:4px" id="footerCredit" data-i18n="footer.credit">Développé par l'École ACHIM • Pour toutes les écoles</div>
 </footer>
 
 <!-- ═══════════════════════════════════════════════════════════
