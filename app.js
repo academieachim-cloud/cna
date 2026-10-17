@@ -73,34 +73,54 @@ const I18N = {
     return text.replace(/\{(\w+)\}/g, (m, k) => vars[k] !== undefined ? vars[k] : m);
   },
 
-  apply() {
+   apply() {
+    // 1. Texte simple (textContent)
     document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.dataset.i18n;
       const text = this.t(key);
-      if (text && text !== key) el.textContent = text;
+      if (text && text !== key) {
+        el.textContent = text;
+      }
     });
+
+    // 2. Texte riche avec HTML (innerHTML) — NOUVEAU
+    document.querySelectorAll('[data-i18n-html]').forEach(el => {
+      const key = el.dataset.i18nHtml;
+      const html = this.t(key);
+      if (html && html !== key) {
+        el.innerHTML = html;
+      }
+    });
+
+    // 3. Placeholders
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
       const key = el.dataset.i18nPlaceholder;
       const text = this.t(key);
       if (text) el.placeholder = text;
     });
+
+    // 4. Titres (tooltips)
     document.querySelectorAll('[data-i18n-title]').forEach(el => {
       const key = el.dataset.i18nTitle;
       const text = this.t(key);
       if (text) el.title = text;
     });
+
+    // 5. ARIA labels
     document.querySelectorAll('[data-i18n-aria]').forEach(el => {
       const key = el.dataset.i18nAria;
       const text = this.t(key);
       if (text) el.setAttribute('aria-label', text);
     });
+
+    // 6. Meta content
     document.querySelectorAll('[data-i18n-content]').forEach(el => {
       const key = el.dataset.i18nContent;
       const text = this.t(key);
       if (text) el.setAttribute('content', text);
     });
 
-    // Re-render dynamique
+    // 7. Re-render dynamique
     try {
       if (typeof renderStickers === 'function') renderStickers();
       if (typeof updateSubjectBadge === 'function') updateSubjectBadge();
