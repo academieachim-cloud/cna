@@ -96,11 +96,16 @@ const I18N = {
     this.translations = await this.load(lang);
     localStorage.setItem('cahier-achim-lang', lang);
     document.documentElement.lang = lang;
-    this.apply();
-    this.updateLangButton();
-    
-    // Dispatch event pour les autres modules
-    window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
+   this.apply();
+  this.updateLangButton();
+  // Re-render les modales ouvertes (optionnel)
+  document.querySelectorAll('.modal').forEach(m => {
+    // Si une modale est ouverte, on peut la fermer pour éviter du texte mixte
+    // m.remove();
+  });
+  window.dispatchEvent(new CustomEvent('langchange', { detail: { lang } }));
+
+     
   },
 
    t(key, vars = {}) {
@@ -157,7 +162,20 @@ const I18N = {
       const text = this.t(key);
       if (text) el.setAttribute('content', text);
     });
-  },
+  // Re-générer les éléments dynamiques
+  if (typeof renderStickers === 'function') renderStickers();
+  if (typeof updateSubjectBadge === 'function') updateSubjectBadge();
+  if (typeof updateProfileBtn === 'function') updateProfileBtn();
+  if (typeof applyLevel === 'function') applyLevel(getCurrentLevel());
+  if (typeof initToolButtons === 'function') {
+    // Réinitialiser les boutons d'outils avec les nouveaux titres
+    initToolButtons();
+    // Re-appliquer la classe active
+    const active = state.tool;
+    Object.values(toolButtons).forEach(b => b && b.classList.remove('active'));
+    if (toolButtons[active]) toolButtons[active].classList.add('active');
+  }
+},
 
   updateLangButton() {
     const btn = document.getElementById('langToggle');
@@ -395,26 +413,25 @@ const state = {
 const toolButtons = {};
 const EXTRA_SHAPES = ['pentagon','hexagon','heart','arrow','speech','music'];
 const DRAW_TOOLS = [
-  { id: 'toolPen', tool: 'pen', emoji: '✏️', title: 'Stylo', active: true },
-  { id: 'toolHighlighter', tool: 'highlighter', emoji: '🖍️', title: 'Surligneur' },
-  { id: 'toolEraser', tool: 'eraser', emoji: '🧽', title: 'Gomme' },
-  { id: 'toolLine', tool: 'line', emoji: '📏', title: 'Ligne' },
-  { id: 'toolCircle', tool: 'circle', emoji: '⭕', title: 'Cercle' },
-  { id: 'toolRect', tool: 'rect', emoji: '▭', title: 'Rectangle' },
-  { id: 'toolTriangle', tool: 'triangle', emoji: '△', title: 'Triangle' },
-  { id: 'toolStar', tool: 'star', emoji: '⭐', title: 'Étoile' },
-  { id: 'toolPentagon', tool: 'pentagon', emoji: '⬟', title: 'Pentagone' },
-  { id: 'toolHexagon', tool: 'hexagon', emoji: '⬢', title: 'Hexagone' },
-  { id: 'toolHeart', tool: 'heart', emoji: '❤️', title: 'Cœur' },
-  { id: 'toolArrow', tool: 'arrow', emoji: '➡️', title: 'Flèche' },
-  { id: 'toolSpeech', tool: 'speech', emoji: '💬', title: 'Bulle BD' },
-  { id: 'toolMusic', tool: 'music', emoji: '🎵', title: 'Note' },
-  { id: 'toolText', tool: 'text', emoji: '🅰️', title: 'Texte' },
-  { id: 'toolSticker', tool: 'sticker', emoji: '😊', title: 'Stickers' },
-  { id: 'toolCollage', tool: 'collage', emoji: '✂️', title: 'Atelier collage', cssClass: 'collage' },
-  { id: 'btnTextSelect', tool: 'textSelect', emoji: '🗣️', title: 'Lire le texte', cssClass: 'text-select' }
+  { id: 'toolPen', tool: 'pen', emoji: '✏️', titleKey: 'toolbar.pen', active: true },
+  { id: 'toolHighlighter', tool: 'highlighter', emoji: '🖍️', titleKey: 'toolbar.highlighter' },
+  { id: 'toolEraser', tool: 'eraser', emoji: '🧽', titleKey: 'toolbar.eraser' },
+  { id: 'toolLine', tool: 'line', emoji: '📏', titleKey: 'toolbar.line' },
+  { id: 'toolCircle', tool: 'circle', emoji: '⭕', titleKey: 'toolbar.circle' },
+  { id: 'toolRect', tool: 'rect', emoji: '▭', titleKey: 'toolbar.rect' },
+  { id: 'toolTriangle', tool: 'triangle', emoji: '△', titleKey: 'toolbar.triangle' },
+  { id: 'toolStar', tool: 'star', emoji: '⭐', titleKey: 'toolbar.star' },
+  { id: 'toolPentagon', tool: 'pentagon', emoji: '⬟', titleKey: 'toolbar.pentagon' },
+  { id: 'toolHexagon', tool: 'hexagon', emoji: '⬢', titleKey: 'toolbar.hexagon' },
+  { id: 'toolHeart', tool: 'heart', emoji: '❤️', titleKey: 'toolbar.heart' },
+  { id: 'toolArrow', tool: 'arrow', emoji: '➡️', titleKey: 'toolbar.arrow' },
+  { id: 'toolSpeech', tool: 'speech', emoji: '💬', titleKey: 'toolbar.speech' },
+  { id: 'toolMusic', tool: 'music', emoji: '🎵', titleKey: 'toolbar.music' },
+  { id: 'toolText', tool: 'text', emoji: '🅰️', titleKey: 'toolbar.text' },
+  { id: 'toolSticker', tool: 'sticker', emoji: '😊', titleKey: 'toolbar.sticker' },
+  { id: 'toolCollage', tool: 'collage', emoji: '✂️', titleKey: 'toolbar.collage', cssClass: 'collage' },
+  { id: 'btnTextSelect', tool: 'textSelect', emoji: '🗣️', titleKey: 'toolbar.listen', cssClass: 'text-select' }
 ];
-
 /* ═══════════════════════════════════════════════════════════
    3. UTILITAIRES
    ═══════════════════════════════════════════════════════════ */
@@ -702,15 +719,15 @@ function openLevelPicker(forceShow = false) {
   const cards = Object.entries(LEVELS).map(([key, lv]) => `
     <div class="level-card ${key === current ? 'active' : ''}" data-key="${key}" style="--level-color: ${lv.color}">
       <span class="level-emoji">${lv.emoji}</span>
-      <span class="level-label">${lv.label}</span>
+      <span class="level-label">${t('level.' + key)}</span>
     </div>
   `).join('');
   modal.innerHTML = `
     <div class="modal-content" style="max-width:640px">
-      <h2 style="margin-top:0;color:var(--achim-bleu)">🎓 Choisis ton niveau</h2>
-      <p style="color:#7f8c8d;font-size:14px">L'application s'adaptera automatiquement à ton âge.</p>
+      <h2 style="margin-top:0;color:var(--achim-bleu)">🎓 ${t('level.question')}</h2>
+      <p style="color:#7f8c8d;font-size:14px">${t('level.description')}</p>
       <div class="level-grid">${cards}</div>
-      <button class="modal-close" style="width:100%;margin-top:16px">Fermer</button>
+      <button class="modal-close" style="width:100%;margin-top:16px">${t('action.close')}</button>
     </div>
   `;
   modal.querySelectorAll('.level-card').forEach(card => {
@@ -718,7 +735,7 @@ function openLevelPicker(forceShow = false) {
       setCurrentLevel(card.dataset.key);
       modal.remove();
       const lv = LEVELS[card.dataset.key];
-      showToast(lv.emoji, `Niveau ${lv.label}`);
+      showToast(lv.emoji, t('level.changed'));
     };
   });
   modal.querySelector('.modal-close').onclick = () => modal.remove();
@@ -773,18 +790,18 @@ function openProfileModal() {
   modal.className = 'modal form-modal';
   modal.innerHTML = `
     <div class="modal-content">
-      <h2>👤 Profil élève — ${ACHIM.nom}</h2>
-      <label class="modal-label">Prénom et nom</label>
-      <input id="pName" type="text" value="${escapeHtml(state.student.name)}" placeholder="Ex : Léa Martin">
-      <label class="modal-label">Classe</label>
-      <input id="pClasse" type="text" value="${escapeHtml(state.student.classe)}" placeholder="Ex : CP A">
-      <label class="modal-label">École</label>
+      <h2>👤 ${t('profile.title', { school: ACHIM.nom })}</h2>
+      <label class="modal-label">${t('profile.name')}</label>
+      <input id="pName" type="text" value="${escapeHtml(state.student.name)}" placeholder="${t('profile.namePlaceholder')}">
+      <label class="modal-label">${t('profile.class')}</label>
+      <input id="pClasse" type="text" value="${escapeHtml(state.student.classe)}" placeholder="${t('profile.classPlaceholder')}">
+      <label class="modal-label">${t('profile.school')}</label>
       <input id="pEcole" type="text" value="${escapeHtml(state.student.ecole)}" readonly style="background:#f0f0f0">
-      <label class="modal-label">Email de l'école</label>
+      <label class="modal-label">${t('profile.email')}</label>
       <input id="pEmail" type="email" value="${escapeHtml(state.student.emailEcole)}" readonly style="background:#f0f0f0">
       <div class="actions-modal">
-        <button class="secondary" id="pCancel">Annuler</button>
-        <button class="primary" id="pSave">Enregistrer</button>
+        <button class="secondary" id="pCancel">${t('action.cancel')}</button>
+        <button class="primary" id="pSave">${t('action.save')}</button>
       </div>
     </div>
   `;
@@ -796,7 +813,7 @@ function openProfileModal() {
     state.student.emailEcole = ACHIM.email;
     saveProfile();
     modal.remove();
-    showToast('👤', 'Profil enregistré');
+    showToast('👤', t('profile.saved'));
   };
   document.body.appendChild(modal);
 }
@@ -834,14 +851,14 @@ function openSubjectPicker() {
   `).join('');
   modal.innerHTML = `
     <div class="modal-content" style="max-width:560px">
-      <h2 style="margin-top:0;color:var(--achim-bleu)">🎨 Choisir la matière</h2>
+      <h2 style="margin-top:0;color:var(--achim-bleu)">🎨 ${t('subjectPicker.title')}</h2>
       <p style="font-size:12px;color:#7f8c8d;margin-top:0">
-        Niveau : <strong>${level.emoji} ${level.label}</strong>
+        ${level.emoji} ${t('level.' + getCurrentLevel())}
       </p>
       <div class="subject-picker">${cards}</div>
-      <label class="modal-label">Nom du travail</label>
-      <input type="text" id="workNameInput" value="${escapeHtml(state.workName)}" style="width:100%;padding:10px;border:2px solid #ddd;border-radius:8px;font-size:15px;margin-top:4px">
-      <button class="modal-close" style="width:100%;margin-top:12px">Fermer</button>
+      <label class="modal-label">${t('subjectPicker.workName')}</label>
+      <input type="text" id="workNameInput" value="${escapeHtml(state.workName)}" ...>
+      <button class="modal-close" style="width:100%;margin-top:12px">${t('action.close')}</button>
     </div>
   `;
   modal.querySelectorAll('.subj-card').forEach(card => {
@@ -1294,12 +1311,12 @@ function showWorkspace() {
    12. OUTILS DE DESSIN
    ═══════════════════════════════════════════════════════════ */
 function initToolButtons() {
-  // Créer les boutons d'outils dynamiquement selon le niveau
   const group = document.getElementById('drawToolsGroup');
   if (!group) return;
-  group.innerHTML = DRAW_TOOLS.map(t => `
-    <button class="tool-btn ${t.cssClass || ''} ${t.active ? 'active' : ''}" id="${t.id}" title="${t.title}">${t.emoji}</button>
-  `).join('');
+  group.innerHTML = DRAW_TOOLS.map(t => {
+    const title = I18N.t(t.titleKey);
+    return `<button class="tool-btn ${t.cssClass || ''} ${t.active ? 'active' : ''}" id="${t.id}" title="${title}" aria-label="${title}" data-i18n-title="${t.titleKey}" data-i18n-aria="${t.titleKey}">${t.emoji}</button>`;
+  }).join('');
   DRAW_TOOLS.forEach(t => {
     toolButtons[t.tool] = document.getElementById(t.id);
   });
@@ -1643,7 +1660,7 @@ function placeSticker(canvas, pageNum, pos) {
   pushGlobalAction({ type: 'sticker', page: pageNum, stroke });
   redrawPage(pageNum, canvas);
   scheduleSave();
-  showToast(state.selectedSticker, 'Bravo !');
+showToast(state.selectedSticker, t('message.success'));
 }
 function pushGlobalAction(action) {
   state.globalHistory = state.globalHistory.slice(0, state.globalHistoryIndex + 1);
@@ -1932,21 +1949,21 @@ function openClipPicker() {
   modal.className = 'modal';
   modal.id = 'clipPicker';
   const categories = [
-    { key: 'all', label: '⭐ Tout', filter: () => true },
-    { key: 'mer', label: '🌊 Mer', filter: (i) => i.cat === 'mer' },
-    { key: 'nature', label: '🌳 Nature', filter: (i) => i.cat === 'nature' },
-    { key: 'maison', label: '🏠 Maison', filter: (i) => i.cat === 'maison' },
-    { key: 'animaux', label: '🐾 Animaux', filter: (i) => i.cat === 'animaux' },
-    { key: 'food', label: '🍎 Alimentation', filter: (i) => i.cat === 'food' },
-    { key: 'haiti', label: '🇭🇹 Haïti', filter: (i) => i.cat === 'haiti' },
-    { key: 'custom', label: '📁 Mes images', filter: null }
+    { key: 'all', label: t('clip.tabs.all'), filter: () => true },
+    { key: 'mer', label: t('clip.tabs.sea'), filter: (i) => i.cat === 'mer' },
+    { key: 'nature', label: t('clip.tabs.nature'), filter: (i) => i.cat === 'nature' },
+    { key: 'maison', label: t('clip.tabs.house'), filter: (i) => i.cat === 'maison' },
+    { key: 'animaux', label: t('clip.tabs.animals'), filter: (i) => i.cat === 'animaux' },
+    { key: 'food', label: t('clip.tabs.food'), filter: (i) => i.cat === 'food' },
+    { key: 'haiti', label: t('clip.tabs.haiti'), filter: (i) => i.cat === 'haiti' },
+    { key: 'custom', label: t('clip.tabs.custom'), filter: null }
   ];
   let currentTab = 'all';
   function renderContent() {
     const grid = modal.querySelector('.clip-pack-grid');
     if (currentTab === 'custom') {
       if (state.customClips.length === 0) {
-        grid.innerHTML = `<div class="clip-empty" style="grid-column: 1/-1">Aucune image personnalisée.<br><small>Utilise ✂️ Découper ou 📁 Importer.</small></div>`;
+         grid.innerHTML = `<div class="clip-empty" style="grid-column: 1/-1">${t('clip.empty')}<br><small>${t('scissors.keep')}</small></div>`;
         return;
       }
       grid.innerHTML = state.customClips.map((c, i) => `
@@ -1991,16 +2008,16 @@ function openClipPicker() {
     });
   }
   const tabsHTML = categories.map(cat => `<button class="clip-tab ${cat.key === currentTab ? 'active' : ''}" data-tab="${cat.key}">${cat.label}</button>`).join('');
-  modal.innerHTML = `
+   modal.innerHTML = `
     <div class="modal-content">
-      <h2>🖼️ Choisir une image à coller</h2>
-      <p style="font-size:13px;color:#7f8c8d;margin-top:0">Clique sur une image pour la placer.</p>
+      <h2>🖼️ ${t('clip.title')}</h2>
+      <p style="font-size:13px;color:#7f8c8d;margin-top:0">${t('clip.hint')}</p>
       <div class="clip-tabs">${tabsHTML}</div>
       <div class="clip-pack-grid"></div>
       <div class="clip-tab-actions">
-        <button class="scissors-btn" id="clipScissors">✂️ Découper</button>
-        <button class="import-btn" id="clipImportBtn">📁 Importer</button>
-        <button class="cancel-btn" id="clipCancel">Fermer</button>
+        <button class="scissors-btn" id="clipScissors">${t('clip.cut')}</button>
+        <button class="import-btn" id="clipImportBtn">${t('clip.import')}</button>
+        <button class="cancel-btn" id="clipCancel">${t('action.close')}</button>
       </div>
     </div>`;
   modal.querySelectorAll('.clip-tab').forEach(tab => {
@@ -2117,14 +2134,14 @@ function startScissorsTool(sourceOverride = null) {
   modal.className = 'modal';
   modal.innerHTML = `
     <div class="modal-content" style="max-width:520px;text-align:left">
-      <h2 style="margin-top:0;color:#e74c3c">✂️ Découper une image</h2>
-      <p style="color:#7f8c8d;font-size:13px;margin-top:0">Choisis la source de l'image à découper.</p>
+      <h2 style="margin-top:0;color:#e74c3c">✂️ ${t('scissors.title')}</h2>
+      <p style="color:#7f8c8d;font-size:13px;margin-top:0">${t('clip.hint')}</p>
       <div class="menu-list">
-        <div class="menu-item" data-source="page"><span class="icon">📄</span><div><div class="label">Découper dans la page actuelle</div><div class="desc">Extrait un détail</div></div></div>
-        <div class="menu-item" data-source="custom"><span class="icon">📁</span><div><div class="label">Découper dans mes images</div><div class="desc">${state.customClips.length} image(s)</div></div></div>
-        <div class="menu-item" data-source="import"><span class="icon">📷</span><div><div class="label">Importer une nouvelle image</div><div class="desc">Photo, PNG, JPG…</div></div></div>
+        <div class="menu-item" data-source="page"><span class="icon">📄</span><div><div class="label">${t('scissors.sourcePage')}</div><div class="desc">${t('scissors.sourcePageDesc')}</div></div></div>
+        <div class="menu-item" data-source="custom"><span class="icon">📁</span><div><div class="label">${t('scissors.sourceCustom')}</div><div class="desc">${state.customClips.length} ${t('clip.tabs.custom')}</div></div></div>
+        <div class="menu-item" data-source="import"><span class="icon">📷</span><div><div class="label">${t('scissors.sourceImport')}</div><div class="desc">${t('scissors.sourceImportDesc')}</div></div></div>
       </div>
-      <button class="modal-close" style="width:100%">Annuler</button>
+      <button class="modal-close" style="width:100%">${t('action.cancel')}</button>
     </div>`;
   modal.querySelector('.modal-close').onclick = () => modal.remove();
   modal.querySelectorAll('.menu-item').forEach(item => {
@@ -2569,18 +2586,18 @@ function showCutResult(result, sourceName, keepInLibrary) {
   modal.className = 'modal cut-result-modal';
   modal.innerHTML = `
     <div class="modal-content">
-      <h3>✅ Découpage réussi !</h3>
+      <h3>✅ ${t('scissors.result')}</h3>
       <div class="cut-result-preview"><img src="${result}" alt="Découpe"></div>
       <div class="cut-result-actions">
-        <button class="redo" id="cutRedo">↩️ Refaire</button>
-        <button class="save" id="cutSave">💾 Garder</button>
-        <button class="place" id="cutPlace">📌 Placer</button>
+        <button class="redo" id="cutRedo">${t('scissors.redo')}</button>
+        <button class="save" id="cutSave">${t('scissors.keep')}</button>
+        <button class="place" id="cutPlace">${t('scissors.place')}</button>
       </div>
     </div>`;
   modal.querySelector('#cutRedo').onclick = () => { modal.remove(); launchScissors({ src: result, name: sourceName }); };
   modal.querySelector('#cutSave').onclick = () => {
     state.customClips.push({ id: generateId('custom'), name: sourceName ? `${sourceName} (découpé)` : 'Découpe', src: result, date: Date.now() });
-    saveCustomClips(); modal.remove(); showToast('💾', 'Gardé dans Mes images');
+    saveCustomClips(); modal.remove(); showToast('💾', t('library.saved')); 
   };
   modal.querySelector('#cutPlace').onclick = () => {
     modal.remove();
@@ -2702,18 +2719,20 @@ function showGuide(type) {
   content.className = 'modal-content';
   if (type === 'lettres') {
     content.innerHTML = `
-      <h2 style="margin-top:0">Alphabet</h2>
-      <div style="font-family:'Comic Sans MS',cursive;font-size:44px;line-height:1.4;letter-spacing:6px;word-break:break-all">a b c d e f g h i j k l m n o p q r s t u v w x y z</div>
-      <h3>Majuscules</h3>
-      <div style="font-family:'Comic Sans MS',cursive;font-size:44px;line-height:1.4;letter-spacing:6px;word-break:break-all">A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
+      <h2 style="margin-top:0">${t('guide.alphabet')}</h2>
+      <div ...>a b c d e f g h i j k l m n o p q r s t u v w x y z</div>
+      <h3>${t('guide.uppercase')}</h3>
+      <div ...>A B C D E F G H I J K L M N O P Q R S T U V W X Y Z</div>
     `;
   } else {
     content.innerHTML = `
-      <h2 style="margin-top:0">Chiffres</h2>
-      <div style="font-family:'Comic Sans MS',cursive;font-size:60px;line-height:1.4;letter-spacing:10px">0 1 2 3 4 5 6 7 8 9</div>
-      <h3>Bande numérique</h3>
-      <div style="font-size:22px;letter-spacing:4px;color:#3498db;padding:8px;border-bottom:2px solid #3498db">0 • 1 • 2 • 3 • 4 • 5 • 6 • 7 • 8 • 9 • 10</div>
+      <h2 style="margin-top:0">${t('guide.numbers')}</h2>
+      <div ...>0 1 2 3 4 5 6 7 8 9</div>
+      <h3>${t('guide.numberLine')}</h3>
+      <div ...>0 • 1 • 2 • 3 • 4 • 5 • 6 • 7 • 8 • 9 • 10</div>
     `;
+  }
+   close.textContent = t('action.close')
   }
   const close = document.createElement('button');
   close.className = 'modal-close'; close.textContent = 'Fermer';
@@ -2853,11 +2872,11 @@ function showLetterForCopy(letter) {
   modal.className = 'modal';
   modal.innerHTML = `
     <div class="modal-content" style="background:#fff;color:#000;padding:32px 60px">
-      <p style="font-size:16px;color:#888;margin:0">Recopie :</p>
-      <div style="font-family:'Comic Sans MS',cursive;font-size:180px;font-weight:bold;color:#e74c3c;line-height:1">${escapeHtml(letter)}</div>
+      <p style="font-size:16px;color:#888;margin:0">${t('guide.copy')}</p>
+      <div ...>${escapeHtml(letter)}</div>
     </div>`;
   const close = document.createElement('button');
-  close.className = 'modal-close'; close.textContent = 'Fermer';
+  close.className = 'modal-close'; close.textContent = t('action.close');
   close.onclick = () => modal.remove();
   modal.appendChild(close); document.body.appendChild(modal);
   if ('speechSynthesis' in window) {
@@ -2988,7 +3007,7 @@ async function exportFinishedPDF(silent = false) {
     const filename = (workName || 'Travail_ACHIM').replace(/[\\/:*?"<>|]/g, '_') + '.pdf';
     const blob = pdf.output('blob');
     downloadBlob(blob, filename);
-    showToast('📤', 'PDF téléchargé !');
+    showToast('📤', t('message.downloaded'));
     return blob;
   } catch (err) { alert('Erreur export : ' + err.message); }
   finally { setTimeout(() => setLoading(false), 500); }
@@ -3061,7 +3080,7 @@ function checkEmailRate() {
   } catch { return true; }
 }
 async function sendByEmail() {
-  if (!state.numPages) { alert('Aucun document chargé.'); return; }
+  if (!state.numPages) { alert(t('message.noDocument')); return; }
   await sendByMailto();
 }
 async function sendByEmailJS() {
@@ -3201,15 +3220,15 @@ function openSaveMenu() {
   modal.className = 'modal';
   modal.innerHTML = `
     <div class="modal-content" style="max-width:540px;text-align:left">
-      <h2 style="margin-top:0;color:var(--achim-bleu)">💾 Enregistrer le travail</h2>
+      <h2 style="margin-top:0;color:var(--achim-bleu)">💾 ${t('save.title')}</h2>
       <div class="menu-list">
-        <div class="menu-item" data-action="history"><span class="icon">📚</span><div><div class="label">Enregistrer dans l'historique</div><div class="desc">Reprise rapide</div></div></div>
-        <div class="menu-item" data-action="cahier"><span class="icon">📦</span><div><div class="label">Fichier travail (.cahier)</div><div class="desc">Pour transférer</div></div></div>
-        <div class="menu-item" data-action="pdf"><span class="icon">📄</span><div><div class="label">PDF à envoyer</div><div class="desc">Avec fiche de suivi</div></div></div>
-        <div class="menu-item" data-action="mail"><span class="icon">📧</span><div><div class="label">Envoyer à l'école</div><div class="desc">→ ${ACHIM.email}</div></div></div>
-        <div class="menu-item" data-action="share"><span class="icon">📤</span><div><div class="label">Partager</div><div class="desc">WhatsApp, Drive…</div></div></div>
+        <div class="menu-item" data-action="history"><span class="icon">📚</span><div><div class="label">${t('save.history')}</div><div class="desc">${t('save.historyDesc')}</div></div></div>
+        <div class="menu-item" data-action="cahier"><span class="icon">📦</span><div><div class="label">${t('save.cahier')}</div><div class="desc">${t('save.cahierDesc')}</div></div></div>
+        <div class="menu-item" data-action="pdf"><span class="icon">📄</span><div><div class="label">${t('save.pdf')}</div><div class="desc">${t('save.pdfDesc')}</div></div></div>
+        <div class="menu-item" data-action="mail"><span class="icon">📧</span><div><div class="label">${t('save.mail')}</div><div class="desc">→ ${ACHIM.email}</div></div></div>
+        <div class="menu-item" data-action="share"><span class="icon">📤</span><div><div class="label">${t('save.share')}</div><div class="desc">${t('save.shareDesc')}</div></div></div>
       </div>
-      <button class="modal-close" style="width:100%">Annuler</button>
+      <button class="modal-close" style="width:100%">${t('action.cancel')}</button>
     </div>`;
   modal.querySelector('.modal-close').onclick = () => modal.remove();
   modal.querySelectorAll('.menu-item').forEach(item => {
@@ -3342,6 +3361,7 @@ function renderHistoryModal(allWorks) {
         const pagesTouched = Object.keys(w.drawData || {}).filter(k => (w.drawData[k].strokes||[]).length > 0).length;
         const title = w.workName ? `${w.student?.name || 'Élève'} • ${w.workName}` : `${w.student?.name || 'Élève'} • ${subj.name}`;
         const clipsTxt = clipsCount > 0 ? ` • 🖼️ ${clipsCount}` : '';
+       const emptyMsg = `<p style="text-align:center;color:#95a5a6;padding:32px">${t('history.empty')}</p>`;
         return `
           <div class="history-item" data-id="${w.id}" style="border-left-color:${subj.color}">
             <div class="subj-icon">${subj.emoji}</div>
@@ -3356,17 +3376,19 @@ function renderHistoryModal(allWorks) {
             </div>
           </div>`;
       }).join('');
+   
   modal.innerHTML = `
     <div class="modal-content">
-      <h2 style="margin-top:0;color:var(--achim-bleu)">📚 Historique</h2>
+      <h2 style="margin-top:0;color:var(--achim-bleu)">📚 ${t('history.title')}</h2>
       <div class="history-filters">${filters}</div>
       <div class="history-list">${items}</div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button id="exportAllHistory" style="flex:1;padding:10px;border:none;border-radius:8px;background:#3498db;color:white;font-weight:bold;cursor:pointer">📦 Tout exporter</button>
-        <button id="clearHistory" style="padding:10px;border:none;border-radius:8px;background:#e74c3c;color:white;font-weight:bold;cursor:pointer">🗑️ Vider</button>
-        <button class="modal-close" style="width:auto;padding:10px 20px;margin:0">Fermer</button>
+        <button id="exportAllHistory" ...>${t('history.exportAll')}</button>
+        <button id="clearHistory" ...>${t('history.clear')}</button>
+        <button class="modal-close" ...>${t('action.close')}</button>
       </div>
     </div>`;
+   
   modal.querySelectorAll('.filter-chip').forEach(chip => {
     chip.onclick = () => { historyFilter = chip.dataset.filter; modal.remove(); renderHistoryModal(allWorks); };
   });
@@ -3375,7 +3397,7 @@ function renderHistoryModal(allWorks) {
     item.querySelector('.resume').onclick = (e) => { e.stopPropagation(); modal.remove(); resumeFromHistory(id); };
     item.querySelector('.export').onclick = (e) => { e.stopPropagation(); modal.remove(); exportFromHistory(id); };
     item.querySelector('.delete').onclick = async (e) => {
-      e.stopPropagation(); if (!confirm('Supprimer ce travail ?')) return;
+      e.stopPropagation(); if (!confirm(t('message.confirmDelete'))) return;
       await dbDelete(id); modal.remove(); openHistory();
     };
   });
@@ -3386,9 +3408,7 @@ function renderHistoryModal(allWorks) {
     await exportHistoryAsZip(filtered);
   };
   modal.querySelector('#clearHistory').onclick = async () => {
-    if (!confirm(`⚠️ Supprimer TOUT l'historique ?`)) return;
-    await dbClear(); modal.remove(); showToast('🗑️', 'Historique vidé');
-  };
+    if (!confirm(t('message.confirmDeleteAll'))) return;
   document.body.appendChild(modal);
 }
 async function exportHistoryAsZip(works) {
@@ -3570,15 +3590,15 @@ function openUrlModal() {
     : '<span style="font-size:12px;color:#95a5a6">Aucun lien récent</span>';
   modal.innerHTML = `
     <div class="modal-content">
-      <h2>🌐 Ouvrir depuis un lien web</h2>
-      <label class="modal-label">Lien (URL)</label>
-      <input type="text" id="urlInput" placeholder="https://exemple.com/cahier.pdf" autocomplete="off" spellcheck="false">
-      <div class="hint">💡 Google Drive, Dropbox et Google Docs sont convertis automatiquement.</div>
-      <label class="modal-label">Liens récents</label>
+      <h2>🌐 ${t('url.title')}</h2>
+      <label class="modal-label">${t('url.label')}</label>
+      <input type="text" id="urlInput" placeholder="${t('url.placeholder')}" ...>
+      <div class="hint">${t('url.hint')}</div>
+      <label class="modal-label">${t('url.recent')}</label>
       <div class="url-recent">${recentChips}</div>
       <div class="modal-actions-inline">
-        <button class="modal-btn secondary" id="urlCancel">Annuler</button>
-        <button class="modal-btn primary" id="urlLoad">🌐 Charger</button>
+        <button class="modal-btn secondary" id="urlCancel">${t('action.cancel')}</button>
+        <button class="modal-btn primary" id="urlLoad">${t('url.load')}</button>
       </div>
     </div>`;
   modal.querySelector('#urlCancel').onclick = () => modal.remove();
@@ -3593,6 +3613,7 @@ function openUrlModal() {
     chip.onclick = async () => { const url = chip.dataset.url; modal.remove(); await loadFromUrl(url); };
   });
   document.body.appendChild(modal);
+   showToast('🌐', t('url.loaded'));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3606,17 +3627,17 @@ function openLibraryModal() {
   const modal = document.createElement('div');
   modal.className = 'modal';
   const items = lib.length === 0
-    ? '<p style="text-align:center;color:#95a5a6;padding:32px">Aucune ressource.</p>'
-    : lib.map((r, i) => `
-        <div class="library-item" data-index="${i}" style="border-left:4px solid #16a085;background:#f5f7fa;padding:12px 14px;border-radius:10px;margin:6px 0;display:flex;align-items:center;gap:12px">
-          <div class="lib-icon" style="font-size:24px;min-width:36px;text-align:center;cursor:pointer">${r.icon || '📄'}</div>
-          <div class="lib-info" style="flex:1;min-width:0;cursor:pointer">
-            <div style="font-weight:bold;color:#2c3e50;font-size:14px">${escapeHtml(r.title)}</div>
-            <div style="font-size:12px;color:#7f8c8d">${escapeHtml(r.desc || r.url)}</div>
-          </div>
-          <button class="edit" style="background:#ecf0f1;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer">✏️</button>
-          <button class="delete" style="background:#ecf0f1;border:none;width:34px;height:34px;border-radius:50%;cursor:pointer">🗑️</button>
-        </div>`).join('');
+    ? `<p style="text-align:center;color:#95a5a6;padding:32px">${t('library.empty')}</p>`
+    : lib.map((r, i) => `...`).join('');
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width:640px;text-align:left;width:90vw">
+      <h2 style="margin-top:0;color:#16a085">📚 ${t('library.title')}</h2>
+      <div class="library-list">${items}</div>
+      <div class="modal-actions-inline">
+        <button id="libAdd" class="modal-btn primary">${t('library.add')}</button>
+        <button class="modal-close" style="width:auto;padding:12px 20px;margin:0">${t('action.close')}</button>
+      </div>
+    </div>`).join('');
   modal.innerHTML = `
     <div class="modal-content" style="max-width:640px;text-align:left;width:90vw">
       <h2 style="margin-top:0;color:#16a085">📚 Bibliothèque</h2>
@@ -3643,6 +3664,7 @@ function openLibraryModal() {
     };
   });
   document.body.appendChild(modal);
+    showToast(item.icon, t('library.saved'));
 }
 function openAddLibraryItem(editIndex = null) {
   const lib = loadLibrary();
