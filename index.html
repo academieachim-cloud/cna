@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cahier ACHIM">
+<meta name="theme-color" content="#1A3E62">
+<meta name="description" content="Cahier Numérique ACHIM — Le cahier numérique universel, frugal et résilient pour toutes les écoles.">
+<title>Cahier Numérique ACHIM</title>
+
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="favicon-32x32.png" type="image/png" sizes="32x32">
+<link rel="icon" href="favicon-16x16.png" type="image/png" sizes="16x16">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="./styles2.css">
+</head>
+<body role="application" aria-label="Cahier Numérique ACHIM">
+
+<!-- ═══════════════════════════════════════════════════════════
+     SKIP LINK (accessibilité clavier)
+     ═══════════════════════════════════════════════════════════ -->
+<a href="#viewer" class="skip-link" data-i18n="a11y.skipToContent">Aller au contenu principal</a>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SPLASH SCREEN — Écran de chargement
+     ═══════════════════════════════════════════════════════════ -->
+<div id="splash-screen" role="status" aria-live="polite" aria-label="Chargement de l'application">
+  <div class="splash-content">
+    
+    <!-- Logo animé -->
+    <div class="splash-logo" aria-hidden="true">
+      <span>CNA</span>
+    </div>
+    
+    <!-- Titre -->
+    <h1 class="splash-title">Cahier Numérique ACHIM</h1>
+    <p class="splash-subtitle" data-i18n="splash.developedBy">Développé par l'École ACHIM</p>
+    
+    <!-- Barre de progression -->
+    <div class="splash-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="splash-progress-bar" id="splashProgress"></div>
+    </div>
+    
+    <!-- Statut dynamique -->
+    <p class="splash-status" id="splashStatus" data-i18n="splash.init">Initialisation...</p>
+    
+    <!-- Version en bas -->
+    <p class="splash-version">🎓 École ACHIM • v4.0</p>
+    
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MENU CONTEXTUEL TEXTE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="textContextMenu" role="menu" aria-label="Actions sur le texte sélectionné">
+  <button class="primary-action" id="ctxSpeak" role="menuitem" data-i18n="context.speak">🗣️ Écouter</button>
+  <button id="ctxTranslate" role="menuitem" data-i18n="context.translate">🌐 Traduire</button>
+  <button id="ctxWeb" role="menuitem" data-i18n="context.search">🔍 Rechercher</button>
+  <button id="ctxCopy" role="menuitem" data-i18n="context.copy">📋 Copier</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRE D'OUTILS
+     ═══════════════════════════════════════════════════════════ -->
+<div id="toolbar" style="display:none" role="toolbar" aria-label="Barre d'outils principale" data-i18n-aria="toolbar.label">
+  
+  <div id="schoolLogo" title="Cliquer pour personnaliser le logo" role="button" tabindex="0" aria-label="Logo de l'école — cliquer pour personnaliser">
+    <span class="fallback">CNA</span>
+  </div>
+  
+  <!-- Outils de dessin (générés dynamiquement en JS) -->
+  <div class="tool-group" id="drawToolsGroup" role="group" aria-label="Outils de dessin"></div>
+  
+  <!-- Pinceaux spéciaux -->
+  <div class="tool-group" role="group" aria-label="Pinceaux spéciaux">
+    <button class="tool-btn small" id="penMagic" title="Pinceau magique" aria-label="Pinceau magique multicolore">🌈</button>
+    <button class="tool-btn small" id="penNeon" title="Néon" aria-label="Pinceau néon brillant">💫</button>
+  </div>
+  
+  <!-- Palette de couleurs (générée dynamiquement en JS) -->
+  <div id="colorPalette" role="group" aria-label="Palette de couleurs"></div>
+  
+  <!-- Tailles de trait (générées dynamiquement en JS) -->
+  <div id="sizePicker" role="group" aria-label="Taille du trait"></div>
+  
+  <!-- Annuler / Rétablir / Effacer -->
+  <div class="tool-group" role="group" aria-label="Actions sur le dessin">
+    <button class="tool-btn small" id="btnUndo" title="Annuler" aria-label="Annuler la dernière action">↶</button>
+    <button class="tool-btn small" id="btnRedo" title="Rétablir" aria-label="Rétablir l'action annulée">↷</button>
+    <button class="tool-btn small" id="btnClear" title="Effacer page" aria-label="Effacer tous les dessins de la page">🗑️</button>
+  </div>
+  
+  <!-- Navigation pages -->
+  <div class="tool-group" role="group" aria-label="Navigation entre les pages">
+    <button class="tool-btn small" id="btnPrev" title="Page précédente" aria-label="Aller à la page précédente">◀</button>
+    <input type="number" id="pageJumpInput" min="1" value="1" title="Aller à la page N" aria-label="Numéro de page — appuyer sur Entrée pour y aller">
+    <span id="pageInfo" aria-live="polite">/1</span>
+    <button class="tool-btn small" id="btnNext" title="Page suivante" aria-label="Aller à la page suivante">▶</button>
+    <button class="tool-btn small" id="btnTwoPages" title="2 pages" aria-label="Afficher deux pages côte à côte">📖</button>
+    <button class="tool-btn" id="btnThumbnails" title="Miniatures" aria-label="Afficher les miniatures des pages">📑</button>
+    <button class="tool-btn" id="btnPdfSearch" title="Rechercher (Ctrl+F)" aria-label="Rechercher dans le PDF" style="display:none">🔍</button>
+  </div>
+  
+  <!-- Sauvegarde -->
+  <div class="tool-group" style="background:rgba(39,174,96,0.15)" role="group" aria-label="Sauvegarde et export">
+    <button class="tool-btn" id="btnSaveWork" title="Enregistrer" aria-label="Enregistrer le travail">💾</button>
+    <button class="tool-btn" id="btnLoadWork" title="Charger .cahier" aria-label="Charger un fichier de travail .cahier">📂</button>
+    <button class="tool-btn" id="btnExportWork" title="Exporter PDF" aria-label="Exporter en PDF">📤</button>
+  </div>
+  
+  <!-- Sources -->
+  <div class="tool-group" role="group" aria-label="Sources externes">
+    <button class="tool-btn" id="btnUrl" title="Ouvrir depuis un lien web" aria-label="Ouvrir depuis un lien web">🌐</button>
+    <button class="tool-btn" id="btnLibrary" title="Bibliothèque" aria-label="Voir la bibliothèque de ressources">📚</button>
+    <button class="tool-btn" id="btnShareLink" title="Partager par lien" aria-label="Partager le travail par lien">🔗</button>
+    <button class="tool-btn" id="btnSmartScan" title="Scanner une feuille" aria-label="Scanner une feuille avec la caméra">📸</button>
+    <button class="tool-btn" id="btnCustomBg" title="Fond personnalisé" aria-label="Personnaliser le fond de page">🎨</button>
+    <button class="tool-btn" id="btnParentalLock" title="Verrou parental" aria-label="Activer ou désactiver le verrou parental">🔐</button>
+  </div>
+  
+  <!-- Import fichiers -->
+  <div class="tool-group" role="group" aria-label="Import de fichiers">
+    <label for="fileInput" class="tool-btn" title="Ouvrir PDF" aria-label="Ouvrir un fichier PDF">📄</label>
+    <input type="file" id="fileInput" accept="application/pdf" hidden>
+    <label for="imgInput" class="tool-btn" title="Ajouter JPG" aria-label="Ajouter une image">🖼️</label>
+    <input type="file" id="imgInput" accept="image/*" multiple hidden>
+    <label for="camInput" class="tool-btn" title="Photo" aria-label="Prendre une photo">📷</label>
+    <input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+    <input type="file" id="logoInput" accept="image/*" hidden aria-label="Choisir un logo">
+    <input type="file" id="clipFileInput" accept="image/png,image/*" multiple hidden aria-label="Importer des images pour le collage">
+    <input type="file" id="scissorsFileInput" accept="image/*" hidden aria-label="Importer une image à découper">
+  </div>
+  
+  <!-- Actions rapides -->
+  <div id="quickActions" role="group" aria-label="Actions rapides">
+    <button class="quick-btn" id="btnLevel" title="Changer de niveau" aria-label="Changer de niveau scolaire">
+      <span id="levelBadge">✏️ CP</span>
+    </button>
+    <button class="quick-btn history" id="btnHistory" title="Historique" aria-label="Voir l'historique des travaux">
+      📚 <span data-i18n="toolbar.history">Historique</span>
+    </button>
+    <button class="quick-btn mail" id="btnMailQuick" title="Envoyer" aria-label="Envoyer le travail à l'école">
+      📧 <span data-i18n="toolbar.send">Envoyer</span>
+    </button>
+    <button class="quick-btn present" id="btnPresent" title="Présenter" aria-label="Activer le mode présentation">
+      🖥️ <span data-i18n="toolbar.present">Présenter</span>
+    </button>
+    <button class="quick-btn profile" id="profileBtn" title="Profil" aria-label="Modifier le profil élève">
+      <span class="avatar" id="profileAvatar">?</span>
+      <span id="profileName">Élève</span>
+    </button>
+    
+    <!-- ⚡ BOUTON LANGUE -->
+    <button id="langToggle" aria-label="Changer de langue" title="Changer de langue" data-i18n-aria="language.select" data-i18n-title="language.select">🌐</button>
+    
+    <button id="themeToggle" title="Changer de thème" aria-label="Changer de thème clair ou sombre">🌙</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRE PÉDAGOGIQUE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="pedagoBar" style="display:none" role="toolbar" aria-label="Outils pédagogiques">
+  <span class="tool-label" data-i18n="pedago.background">Fond :</span>
+  <button class="pedago-btn active" data-mode="none" data-i18n="pedago.white">✍️ Blanc</button>
+  <button class="pedago-btn" data-mode="lines" data-i18n="pedago.lines">📝 Seyes</button>
+  <button class="pedago-btn" data-mode="grid" data-i18n="pedago.grid">🔲 Grille</button>
+  <button class="pedago-btn" data-mode="dots" data-i18n="pedago.dots">⠿ Pointillés</button>
+  <span class="tool-label" data-i18n="pedago.help">Aide :</span>
+  <button class="pedago-btn" id="btnGuideLetter" aria-label="Afficher le guide des lettres" data-i18n="pedago.letters">🔤 Lettres</button>
+  <button class="pedago-btn" id="btnGuideNumber" aria-label="Afficher le guide des chiffres" data-i18n="pedago.numbers">🔢 Chiffres</button>
+  <button class="pedago-btn" id="btnRuler" aria-label="Afficher une règle" data-i18n="pedago.ruler">📐 Règle</button>
+  <button class="pedago-btn" id="btnProtractor" aria-label="Afficher un rapporteur" data-i18n="pedago.protractor">🔺 Rapporteur</button>
+  <button class="pedago-btn" id="btnTimer" aria-label="Afficher un minuteur" data-i18n="pedago.timer">⏱️ Minuteur</button>
+  <button class="pedago-btn" id="btnRecognize" aria-label="Reconnaître un chiffre ou une lettre à voix haute" data-i18n="pedago.recognize">👂 Reconnaître</button>
+  <button class="pedago-btn" id="btnSubject" aria-label="Choisir la matière" data-i18n="pedago.subject">🎨 Matière</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRE COLLAGE
+     ═══════════════════════════════════════════════════════════ -->
+<div id="collageBar" role="toolbar" aria-label="Atelier collage">
+  <span class="collage-title" data-i18n="collage.title">✂️ Atelier collage</span>
+  <button class="scissors" id="scissorsBtn" data-i18n="collage.cut">✂️ Découper</button>
+  <button id="clipAdd" data-i18n="collage.chooseImage">🖼️ Choisir une image</button>
+  <button id="clipRotate" data-i18n="collage.rotate">🔄 Pivoter</button>
+  <button id="clipFlip" data-i18n="collage.flip">🔃 Retourner</button>
+  <button id="clipFront" data-i18n="collage.front">⬆️ Avant</button>
+  <button id="clipBack" data-i18n="collage.back">⬇️ Arrière</button>
+  <button id="clipLock" data-i18n="collage.lock">🔒 Verrouiller</button>
+  <button id="clipDuplicate" data-i18n="collage.duplicate">📋 Dupliquer</button>
+  <button id="clipDelete" data-i18n="collage.delete">🗑️ Supprimer</button>
+  <button id="clipExit" data-i18n="collage.exit">✕ Quitter</button>
+  <span class="clip-info" id="clipInfo" aria-live="polite" data-i18n="collage.noneSelected">Aucune image sélectionnée</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BADGES D'ÉTAT
+     ═══════════════════════════════════════════════════════════ -->
+<div id="subjectBadge" role="status" aria-live="polite" tabindex="0">
+  <span id="subjectEmoji" aria-hidden="true">✍️</span>
+  <span id="subjectName" data-i18n="subject.cahier">Cahier</span>
+  <span class="work-name" id="subjectWorkName"></span>
+</div>
+<div id="offlineBadge" role="status" aria-live="polite" data-i18n="status.offline">📡 Hors ligne</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRE ZOOM
+     ═══════════════════════════════════════════════════════════ -->
+<div id="zoomBar" style="display:none" role="group" aria-label="Contrôle du zoom">
+  <button id="zoomOut" aria-label="Réduire le zoom">−</button>
+  <span id="zoomLevel" aria-live="polite">100%</span>
+  <button id="zoomIn" aria-label="Agrandir le zoom">+</button>
+  <button id="zoomReset" aria-label="Réinitialiser le zoom">⟲</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRE STICKERS (générée dynamiquement en JS)
+     ═══════════════════════════════════════════════════════════ -->
+<div id="stickerBar" role="toolbar" aria-label="Stickers"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TIMER
+     ═══════════════════════════════════════════════════════════ -->
+<div id="timer" role="group" aria-label="Minuteur">
+  <button id="timerToggle" aria-label="Démarrer ou mettre en pause le minuteur">▶</button>
+  <span class="time" id="timerDisplay" aria-live="polite">02:00</span>
+  <button id="timerReset" aria-label="Réinitialiser le minuteur">⟲</button>
+  <button id="timerClose" aria-label="Fermer le minuteur">✕</button>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     RÈGLE + RAPPORTEUR
+     ═══════════════════════════════════════════════════════════ -->
+<svg id="ruler" viewBox="0 0 500 60" xmlns="http://www.w3.org/2000/svg" aria-label="Règle virtuelle" role="img">
+  <rect x="0" y="0" width="500" height="60" fill="#f4d03f" stroke="#c9a227" stroke-width="2" rx="4"/>
+</svg>
+<svg id="protractor" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg" aria-label="Rapporteur virtuel" role="img">
+  <path d="M 20 260 A 130 130 0 0 1 280 260 L 20 260 Z" fill="rgba(155,89,182,0.3)" stroke="#8e44ad" stroke-width="2"/>
+</svg>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE D'ACCUEIL — Refonte v5 (glassmorphism)
+     ═══════════════════════════════════════════════════════════ -->
+<div id="empty" role="region" aria-label="Page d'accueil">
+  
+  <!-- Particules de fond -->
+  <div class="accueil-bg" aria-hidden="true">
+    <div class="accueil-bg-glow accueil-bg-glow-1"></div>
+    <div class="accueil-bg-glow accueil-bg-glow-2"></div>
+    <div class="accueil-bg-glow accueil-bg-glow-3"></div>
+  </div>
+
+  <div class="accueil-container">
+    
+    <!-- Header : Logo + Titre -->
+    <header class="accueil-header">
+      <div class="accueil-logo" id="emptyLogo" aria-label="Logo de l'École ACHIM">
+        <span>CNA</span>
+      </div>
+      <h1 class="accueil-title" data-i18n="accueil.title">Cahier Numérique ACHIM</h1>
+      <p class="accueil-subtitle" id="accueilSubtitle" data-i18n="accueil.subtitle">
+        Développé par l'École ACHIM • Tous niveaux
+      </p>
+      <p class="accueil-tagline" data-i18n="app.tagline">
+        Le cahier numérique universel, frugal et résilient.
+      </p>
+    </header>
+
+    <!-- Boutons d'import (glassmorphism) -->
+    <section class="accueil-actions" aria-label="Importer un document">
+      <label for="fileInput" class="accueil-btn accueil-btn-pdf" data-tooltip="Charger un PDF 📄" aria-label="Charger un fichier PDF">
+        <span class="accueil-btn-icon" aria-hidden="true">📄</span>
+        <span class="accueil-btn-text" data-i18n="button.pdf">PDF</span>
+      </label>
+
+      <label for="imgInput" class="accueil-btn accueil-btn-photo" data-tooltip="Ajouter une image 🖼️" aria-label="Ajouter une image">
+        <span class="accueil-btn-icon" aria-hidden="true">🖼️</span>
+        <span class="accueil-btn-text" data-i18n="button.image">Image</span>
+      </label>
+
+      <label for="camInput" class="accueil-btn accueil-btn-camera" data-tooltip="Prendre une photo 📷" aria-label="Prendre une photo">
+        <span class="accueil-btn-icon" aria-hidden="true">📷</span>
+        <span class="accueil-btn-text" data-i18n="button.photo">Photo</span>
+      </label>
+
+      <label class="accueil-btn accueil-btn-url" id="btnUrlHome" data-tooltip="Ouvrir depuis le web 🌐" aria-label="Ouvrir depuis un lien web">
+        <span class="accueil-btn-icon" aria-hidden="true">🌐</span>
+        <span class="accueil-btn-text" data-i18n="button.url">Lien web</span>
+      </label>
+
+      <label class="accueil-btn accueil-btn-library" id="btnLibraryHome" data-tooltip="Bibliothèque ACHIM 📚" aria-label="Ouvrir la bibliothèque">
+        <span class="accueil-btn-icon" aria-hidden="true">📚</span>
+        <span class="accueil-btn-text" data-i18n="button.library">Bibliothèque</span>
+      </label>
+
+      <label class="accueil-btn accueil-btn-resume" id="workInputLabel" data-tooltip="Reprendre un travail 📂" aria-label="Reprendre un travail sauvegardé">
+        <span class="accueil-btn-icon" aria-hidden="true">📂</span>
+        <span class="accueil-btn-text" data-i18n="button.resume">Reprendre</span>
+      </label>
+
+      <!-- ⚡ INPUT MANQUANT (corrigé) -->
+      <input type="file" id="workInput" accept=".cahier,application/json" hidden aria-label="Charger un fichier de travail .cahier">
+
+      <label class="accueil-btn accueil-btn-history" id="btnHistoryHome" data-tooltip="Historique des travaux 📜" aria-label="Voir l'historique des travaux">
+        <span class="accueil-btn-icon" aria-hidden="true">📜</span>
+        <span class="accueil-btn-text" data-i18n="button.history">Historique</span>
+      </label>
+    </section>
+
+    <!-- Accordéons (glassmorphism) -->
+    <section id="accueilAccordions" aria-label="Guide de démarrage rapide">
+      
+      <!-- Accordéon 1 : Découvrir -->
+      <details class="accordeon" data-acc="decouvrir">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">📖</span>
+          <span class="acc-title" data-i18n="acc.discover">Découvrir l'application</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p data-i18n="acc.discover.text">Le <strong>Cahier Numérique ACHIM</strong> remplace les cahiers d'exercices papier. Il fonctionne sur téléphone, tablette ou ordinateur, <strong>avec ou sans Internet</strong>.</p>
+            <p><strong data-i18n="acc.discover.does">✨ Ce qu'il fait :</strong></p>
+            <ul>
+              <li data-i18n="acc.discover.item1">📄 Charge tes cahiers PDF ou photos</li>
+              <li data-i18n="acc.discover.item2">✏️ Te permet d'écrire et dessiner dessus</li>
+              <li data-i18n="acc.discover.item3">🗣️ Lit les consignes à voix haute</li>
+              <li data-i18n="acc.discover.item4">✂️ Colle des images et découpe des détails</li>
+              <li data-i18n="acc.discover.item5">📤 Envoie ton travail à l'école en un clic</li>
+            </ul>
+            <p class="acc-tip" data-i18n="acc.discover.tip">💡 <strong>Pas besoin de TNI.</strong> Un simple téléphone ou ordinateur suffit.</p>
+            <a class="acc-link" href="#" onclick="event.preventDefault();openAccGuide('decouvrir')" data-i18n="acc.learnMore">📖 En savoir plus →</a>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-accueil.png" alt="Page d'accueil du Cahier Numérique ACHIM" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+      <!-- Accordéon 2 : Prise en main -->
+      <details class="accordeon" data-acc="demarrage">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">🚀</span>
+          <span class="acc-title" data-i18n="acc.quickstart">Prise en main rapide</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p data-i18n="acc.quickstart.step1"><strong>1. Choisis ton niveau</strong> (Maternelle, CP, CE2…)</p>
+            <p data-i18n="acc.quickstart.step2"><strong>2. Charge un exercice</strong> — clique sur 📄 PDF ou 📷 Photo</p>
+            <p data-i18n="acc.quickstart.step3"><strong>3. Écris et dessine</strong> avec les outils en haut</p>
+            <p data-i18n="acc.quickstart.step4"><strong>4. Envoie à l'école</strong> avec le bouton 📧 Envoyer</p>
+            <p class="acc-tip" data-i18n="acc.quickstart.tip">💡 <strong>Astuce :</strong> Installe l'application sur ton téléphone. Menu ⋮ → « Installer l'application ».</p>
+            <a class="acc-link" href="#" onclick="event.preventDefault();openAccGuide('demarrage')" data-i18n="acc.learnMore">📖 En savoir plus →</a>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-toolbar.png" alt="Barre d'outils du cahier" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+      <!-- Accordéon 3 : Niveaux -->
+      <details class="accordeon" data-acc="niveau">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">🎓</span>
+          <span class="acc-title" data-i18n="acc.levels">Choisir mon niveau</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p data-i18n="acc.levels.maternelle"><strong>🧸 Maternelle</strong> — 3-5 ans. Gros boutons, stickers.</p>
+            <p data-i18n="acc.levels.cp"><strong>✏️ CP / CE1</strong> — 6-7 ans. Guides lettres et chiffres.</p>
+            <p data-i18n="acc.levels.ce2"><strong>📚 CE2 / CM1</strong> — 8-9 ans. Rapporteur, matières élargies.</p>
+            <p data-i18n="acc.levels.cm2"><strong>🎓 CM2 / 6e</strong> — 10-11 ans. Interface sobre.</p>
+            <p data-i18n="acc.levels.college"><strong>🏫 Collège / Lycée</strong> — 12 ans et +. Matières spécialisées.</p>
+            <p data-i18n="acc.levels.adulte"><strong>💼 Adulte / Formation</strong> — Formation continue.</p>
+            <p class="acc-tip" data-i18n="acc.levels.tip">💡 Tu peux changer de niveau à tout moment en cliquant sur le badge en haut à droite.</p>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-niveau.png" alt="Sélecteur de niveau scolaire" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+      <!-- Accordéon 4 : Outils -->
+      <details class="accordeon" data-acc="outils">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">✏️</span>
+          <span class="acc-title" data-i18n="acc.tools">Outils disponibles</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p data-i18n="acc.tools.drawing"><strong>🖊️ Dessin :</strong> Stylo, surligneur, gomme, ligne, cercle, rectangle, triangle, étoile, cœur, flèche…</p>
+            <p data-i18n="acc.tools.brushes"><strong>🌈 Pinceaux spéciaux :</strong> Pinceau magique (arc-en-ciel), pinceau néon (brillant).</p>
+            <p data-i18n="acc.tools.insert"><strong>➕ Insertion :</strong> Texte, stickers, atelier collage, images.</p>
+            <p data-i18n="acc.tools.accessibility"><strong>🗣️ Accessibilité :</strong> Lecture vocale des consignes, reconnaissance vocale.</p>
+            <p data-i18n="acc.tools.navigation"><strong>🧭 Navigation :</strong> Pages, vue 2 pages, miniatures, recherche dans le PDF.</p>
+            <p data-i18n="acc.tools.pedago"><strong>📚 Pédagogique :</strong> Fond Seyes, grille, pointillés, règle, rapporteur, minuteur.</p>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-exercice.png" alt="Exemple d'exercice annoté" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+      <!-- Accordéon 5 : Envoyer -->
+      <details class="accordeon" data-acc="envoyer">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">📧</span>
+          <span class="acc-title" data-i18n="acc.send">Envoyer un travail à l'école</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p><strong data-i18n="acc.send.method1">Méthode 1 (la plus simple) :</strong></p>
+            <ol>
+              <li data-i18n="acc.send.step1">Clique sur <strong>📧 Envoyer</strong></li>
+              <li data-i18n="acc.send.step2">Le PDF se télécharge automatiquement</li>
+              <li data-i18n="acc.send.step3">Ta messagerie s'ouvre avec le message prêt</li>
+              <li data-i18n="acc.send.step4"><strong>Joins le PDF téléchargé</strong></li>
+              <li data-i18n="acc.send.step5">Envoie !</li>
+            </ol>
+            <p data-i18n="acc.send.method2"><strong>Méthode 2 (transfert) :</strong> Enregistre en fichier <code>.cahier</code> et transfère-le par WhatsApp, email ou clé USB.</p>
+            <p class="acc-tip">📧 <span data-i18n="acc.send.emailLabel">Adresse de l'école :</span> <strong id="accueilEmail">academie.achim@gmail.com</strong></p>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-envoi.png" alt="Modale d'envoi du travail" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+      <!-- Accordéon 6 : FAQ -->
+      <details class="accordeon" data-acc="faq">
+        <summary>
+          <span class="acc-icon" aria-hidden="true">❓</span>
+          <span class="acc-title" data-i18n="acc.faq">Questions fréquentes</span>
+          <span class="acc-chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="acc-body">
+          <div class="acc-text">
+            <p data-i18n="acc.faq.q1"><strong>Ça marche sans Internet ?</strong><br><em>Oui, une fois installée.</em></p>
+            <p data-i18n="acc.faq.q2"><strong>Mes travaux sont-ils sauvegardés ?</strong><br><em>Oui, automatiquement toutes les 3 secondes.</em></p>
+            <p data-i18n="acc.faq.q3"><strong>Puis-je utiliser sur plusieurs appareils ?</strong><br><em>Oui, via le fichier <code>.cahier</code>.</em></p>
+            <p data-i18n="acc.faq.q4"><strong>Combien ça coûte ?</strong><br><em>C'est entièrement gratuit.</em></p>
+            <p data-i18n="acc.faq.q5"><strong>Faut-il un TNI ?</strong><br><em>Non, un simple téléphone suffit.</em></p>
+            <p data-i18n="acc.faq.q6"><strong>Mes données sont-elles en sécurité ?</strong><br><em>Oui, tout reste stocké localement sur ton appareil.</em></p>
+          </div>
+          <div class="acc-visual">
+            <img src="captures/capture-collage.png" alt="Atelier collage avec bibliothèque" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('acc-visual-empty')">
+          </div>
+        </div>
+      </details>
+
+    </section>
+
+    <!-- Footer de la page d'accueil -->
+    <footer class="accueil-footer">
+      <p class="accueil-footer-line" id="accueilFooter">
+        💾 <span data-i18n="footer.autosave">Sauvegarde auto</span> • 
+        📤 <span data-i18n="footer.exportPDF">Export PDF</span> • 
+        📧 <span data-i18n="footer.sendTo">Envoi à</span> <strong id="accueilFooterEmail">academie.achim@gmail.com</strong>
+      </p>
+      <p class="accueil-footer-version">
+        🎓 École ACHIM • v4.0
+      </p>
+    </footer>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VIEWER — Zone de travail
+     ═══════════════════════════════════════════════════════════ -->
+<div id="viewer" role="main" aria-label="Zone de travail du cahier" data-i18n-aria="viewer.label" tabindex="-1"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     OVERLAYS
+     ═══════════════════════════════════════════════════════════ -->
+<div id="loading" role="alert" aria-busy="true" aria-live="polite">
+  <div class="spinner" aria-hidden="true"></div>
+  <div id="loadingText" data-i18n="message.loading">Chargement...</div>
+  <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="progressBar"></div></div>
+</div>
+<div id="toast" role="alert" aria-live="assertive" aria-atomic="true"></div>
+<div id="saveBadge" role="status" aria-live="polite">💾 <span data-i18n="message.saved">Sauvegardé</span></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODE PRÉSENTATION
+     ═══════════════════════════════════════════════════════════ -->
+<div id="presentTitle" role="status">
+  <span class="dot" aria-hidden="true"></span>
+  <span data-i18n="presentation.mode">Mode présentation</span>
+</div>
+<div id="presentControls" role="toolbar" aria-label="Contrôles de présentation">
+  <button id="presentPrev" aria-label="Page précédente">◀</button>
+  <span class="page-indicator" id="presentPageInfo" aria-live="polite">1 / 1</span>
+  <button id="presentNext" aria-label="Page suivante">▶</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="presentZoomOut" aria-label="Réduire le zoom">−</button>
+  <button id="presentZoomIn" aria-label="Agrandir le zoom">+</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="presentSpotlight" title="Curseur lumineux" aria-label="Activer le curseur lumineux">🔦</button>
+  <button id="presentPen" title="Stylo" aria-label="Activer le stylo">✏️</button>
+  <button id="presentEraser" title="Gomme" aria-label="Activer la gomme">🧽</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button id="presentFullscreen" aria-label="Passer en plein écran">⛶</button>
+  <button id="presentExit" style="background:rgba(210,16,52,0.5)" aria-label="Quitter le mode présentation">✕</button>
+</div>
+<div id="spotlight" aria-hidden="true"></div>
+
+<!-- Aide clavier -->
+<div id="keyboardHelp" role="region" aria-label="Raccourcis clavier">
+  <span class="help-item"><kbd>Ctrl+S</kbd> <span data-i18n="shortcut.save">Sauver</span></span>
+  <span class="help-item"><kbd>Ctrl+E</kbd> <span data-i18n="shortcut.export">Export</span></span>
+  <span class="help-item"><kbd>Ctrl+F</kbd> <span data-i18n="shortcut.search">Chercher</span></span>
+  <span class="help-item"><kbd>Ctrl+B</kbd> <span data-i18n="shortcut.thumbnails">Miniatures</span></span>
+  <span class="help-item"><kbd>Ctrl+Z</kbd> <span data-i18n="shortcut.undo">Annuler</span></span>
+  <span class="help-item"><kbd>B</kbd> <span data-i18n="toolbar.pen">Stylo</span></span>
+  <span class="help-item"><kbd>E</kbd> <span data-i18n="toolbar.eraser">Gomme</span></span>
+  <span class="help-item"><kbd>1-9</kbd> <span data-i18n="shortcut.colors">Couleurs</span></span>
+  <span class="help-item"><kbd>Échap</kbd> <span data-i18n="shortcut.escape">Quitter</span></span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALES
+     ═══════════════════════════════════════════════════════════ -->
+<div id="parentalLockModal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="parentalLockTitle">
+  <div class="modal-content" style="max-width:420px">
+    <h2 id="parentalLockTitle" style="margin-top:0">🔐 <span data-i18n="parental.title">Verrou parental</span></h2>
+    <p id="parentalLockMsg" style="color:#7f8c8d;font-size:13px" data-i18n="parental.message">Entre le code à 4 chiffres.</p>
+    <input type="password" id="parentalPinInput" maxlength="4" inputmode="numeric" pattern="[0-9]*" class="pin-input" aria-label="Code PIN à 4 chiffres">
+    <div class="actions-modal">
+      <button class="secondary" id="parentalCancel" data-i18n="action.cancel">Annuler</button>
+      <button class="primary" id="parentalConfirm" data-i18n="action.confirm">Valider</button>
+    </div>
+  </div>
+</div>
+
+<div id="shareLinkModal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="shareLinkTitle">
+  <div class="modal-content" style="max-width:520px;text-align:left">
+    <h2 id="shareLinkTitle" style="margin-top:0;color:var(--achim-bleu)">🔗 <span data-i18n="share.title">Partager par lien</span></h2>
+    <p style="color:#7f8c8d;font-size:13px" data-i18n="share.description">Le lien contient tout le travail encodé.</p>
+    <label class="modal-label" data-i18n="share.linkLabel">Lien (à copier)</label>
+    <textarea id="shareLinkOutput" readonly class="modal-textarea" aria-label="Lien de partage"></textarea>
+    <div class="modal-actions-inline">
+      <button id="shareCopy" class="modal-btn primary" data-i18n="share.copy">📋 Copier</button>
+      <button id="shareQR" class="modal-btn qr" data-i18n="share.qr">📱 QR Code</button>
+      <button id="shareClose" class="modal-btn secondary" data-i18n="action.close">Fermer</button>
+    </div>
+    <div id="shareQRCode" style="text-align:center;margin-top:16px"></div>
+  </div>
+</div>
+
+<div id="customBgModal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="customBgTitle">
+  <div class="modal-content" style="max-width:480px;text-align:left">
+    <h2 id="customBgTitle" style="margin-top:0;color:#8e44ad">🎨 <span data-i18n="customBg.title">Fond personnalisé</span></h2>
+    <label class="modal-label" data-i18n="customBg.color">Couleur unie</label>
+    <input type="color" id="customBgColor" value="#fff8e7" class="color-input-full" aria-label="Choisir une couleur de fond">
+    <label class="modal-label" data-i18n="customBg.image">Ou image de fond</label>
+    <input type="file" id="customBgFile" accept="image/*" class="file-input-full" aria-label="Choisir une image de fond">
+    <div class="modal-actions-inline">
+      <button id="customBgApply" class="modal-btn primary" data-i18n="action.apply">✓ Appliquer</button>
+      <button id="customBgRemove" class="modal-btn danger" data-i18n="action.remove">🗑️ Retirer</button>
+      <button id="customBgClose" class="modal-btn secondary" data-i18n="action.close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════ -->
+<footer id="footer" role="contentinfo">
+  <div class="footer-content">
+    <span>🎓 <strong id="footerTitle">Cahier Numérique ACHIM</strong> • <span id="footerVersion">v4.0</span></span>
+    <span class="footer-badge" id="footerBadge" data-i18n="footer.allLevels">Tous niveaux</span>
+    <span>
+      <span data-i18n="footer.contact">Contact</span> : 
+      <a href="mailto:academie.achim@gmail.com" id="footerEmail">academie.achim@gmail.com</a>
+    </span>
+  </div>
+  <div style="opacity:0.7;font-size:11px;margin-top:4px" id="footerCredit" data-i18n="footer.credit">
+    Développé par l'École ACHIM • Pour toutes les écoles
+  </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCRIPTS CDN
+     ═══════════════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     APP
+     ═══════════════════════════════════════════════════════════ -->
+<script src="app.js"></script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODULE DE PROTECTION INTÉGRÉ — ACHIM
+     ═══════════════════════════════════════════════════════════ -->
+<scipt>
+(function() {
+    let protectionDeclenchee = false;
+
+    function declencherSecurite(raison) {
+        if (protectionDeclenchee) return;
+        protectionDeclenchee = true;
+        document.body.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f1820; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; box-sizing: border-box;">
+                <div style="font-size: 60px; margin-bottom: 20px;">🛡️</div>
+                <h1 style="color: #D21034; margin-bottom: 10px; font-size: 24px;">Accès restreint</h1>
+                <p style="color: #a0b0c0; max-width: 420px; line-height: 1.6; font-size: 15px; margin-bottom: 25px;">
+                    Une tentative d'inspection ou de débogage a été détectée (${raison}). Pour des raisons de sécurité et d'intégrité de l'application ACHIM, le contenu a été masqué.
+                </p>
+                <button onclick="location.reload()" style="padding: 12px 24px; background: #00209F; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,32,159,0.4);">
+                    Recharger la page
+                </button>
+            </div>
+        `;
+    }
+
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F12' || 
+            (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
+            (e.ctrlKey && e.key.toUpperCase() === 'U')) {
+            e.preventDefault();
+            declencherSecurite("Raccourci clavier bloqué");
+            return false;
+        }
+    });
+
+    const thresholdWidth = 160;
+    const thresholdHeight = 160;
+    setInterval(function() {
+        if (protectionDeclenchee) return;
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (!isMobile) {
+            const widthMismatch = window.outerWidth - window.innerWidth > thresholdWidth;
+            const heightMismatch = window.outerHeight - window.innerHeight > thresholdHeight;
+            if (widthMismatch || heightMismatch) declencherSecurite("Ouverture des DevTools (redimensionnement)");
+        }
+    }, 1000);
+
+    const perfThreshold = 140;
+    setInterval(function() {
+        if (protectionDeclenchee) return;
+        const start = performance.now();
+        debugger;
+        const end = performance.now();
+        if (end - start > perfThreshold) declencherSecurite("Débogage actif détecté");
+    }, 1500);
+})();
+</script>
+</body>
+</html>
