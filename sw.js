@@ -78,12 +78,11 @@ self.addEventListener('activate', (event) => {
           })
       ))
       .then(() => self.clients.claim())
-      .then(() => {
-        // Prévient les onglets ouverts qu'une MAJ est dispo
-        return self.clients.matchAll({ type: 'window' }).then(clients => {
-          clients.forEach(client => {
-            client.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION });
-          });
+      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
+      .then(clients => {
+        console.log('[SW] Clients contrôlés :', clients.length);
+        clients.forEach(client => {
+          client.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION });
         });
       })
   );
