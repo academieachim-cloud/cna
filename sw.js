@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   SERVICE WORKER — CAHIER NUMÉRIQUE ACHIM v4.1
+   SERVICE WORKER — CAHIER NUMÉRIQUE ACHIM v4.2
    Stratégies :
    - App shell (HTML/CSS/JS/JSON) : cache-first avec mise à jour en arrière-plan
    - CDN (pdf.js, jsPDF, etc.)    : stale-while-revalidate
@@ -7,12 +7,14 @@
    - Navigation                    : fallback vers index.html hors ligne
    ═══════════════════════════════════════════════════════════════════════ */
 
-const CACHE_VERSION = 'achim-v4.1.0';
+const CACHE_VERSION = 'achim-v4.2.0';
 const CACHE_APP = `${CACHE_VERSION}-app`;
 const CACHE_CDN = `${CACHE_VERSION}-cdn`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
-/* Fichiers de l'app shell à précacher */
+/* Fichiers de l'app shell à précacher
+   ⚠️ Chemins RELATIFS à /cna/ (pas de / au début)
+   Traductions dans locales/, icônes dans icons/ */
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -20,16 +22,18 @@ const PRECACHE_URLS = [
   './styles.css',
   './styles2.css',
   './manifest.json',
-  './fr.json',
-  './en.json',
-  './ht.json',
-  './es.json',
+  './locales/fr.json',
+  './locales/en.json',
+  './locales/ht.json',
+  './locales/es.json',
+  './icons/favicon.ico',
   './icons/favicon-16x16.png',
   './icons/favicon-32x32.png',
   './icons/apple-touch-icon.png',
   './icons/android-chrome-192x192.png',
   './icons/android-chrome-512x512.png'
 ];
+
 /* CDN à mettre en cache (stale-while-revalidate) */
 const CDN_HOSTS = [
   'cdnjs.cloudflare.com',
@@ -269,8 +273,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Cahier Numérique ACHIM';
   const options = {
     body: data.body || 'Nouveau message de l\'école',
-    icon: './icon-192x192.png',
-    badge: './icon-96x96.png',
+    icon: './icons/android-chrome-192x192.png',
+    badge: './icons/favicon-32x32.png',
     vibrate: [200, 100, 200],
     data: { url: data.url || './index.html' },
     actions: [
