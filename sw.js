@@ -24,16 +24,15 @@ const PRECACHE_URLS = [
   './en.json',
   './ht.json',
   './es.json',
-  './favicon.ico',
-  './favicon-16x16.png',
-  './favicon-32x32.png',
-  './apple-touch-icon.png',
-  './icon-192x192.png',
-  './icon-512x512.png',
-  './icon-maskable-192x192.png',
-  './icon-maskable-512x512.png'
+  './icons/favicon.ico',
+  './icons/favicon-16x16.png',
+  './icons/favicon-32x32.png',
+  './icons/apple-touch-icon.png',
+  './icons/icon-192x192.png',
+  './icons/icon-512x512.png',
+  './icons/maskable-192x192.png',
+  './icons/maskable-512x512.png'
 ];
-
 /* CDN à mettre en cache (stale-while-revalidate) */
 const CDN_HOSTS = [
   'cdnjs.cloudflare.com',
