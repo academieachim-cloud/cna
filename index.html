@@ -586,60 +586,6 @@
 <!-- ═══════════════════════════════════════════════════════════
      MODULE DE PROTECTION INTÉGRÉ — ACHIM
      ═══════════════════════════════════════════════════════════ -->
-<script>
-(function() {
-    let protectionDeclenchee = false;
 
-    function declencherSecurite(raison) {
-        if (protectionDeclenchee) return;
-        protectionDeclenchee = true;
-        document.body.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f1820; color: #fff; font-family: sans-serif; text-align: center; padding: 20px; box-sizing: border-box;">
-                <div style="font-size: 60px; margin-bottom: 20px;">🛡️</div>
-                <h1 style="color: #D21034; margin-bottom: 10px; font-size: 24px;">Accès restreint</h1>
-                <p style="color: #a0b0c0; max-width: 420px; line-height: 1.6; font-size: 15px; margin-bottom: 25px;">
-                    Une tentative d'inspection ou de débogage a été détectée (${raison}). Pour des raisons de sécurité et d'intégrité de l'application ACHIM, le contenu a été masqué.
-                </p>
-                <button onclick="location.reload()" style="padding: 12px 24px; background: #00209F; color: #fff; border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,32,159,0.4);">
-                    Recharger la page
-                </button>
-            </div>
-        `;
-    }
-
-    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'F12' || 
-            (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
-            (e.ctrlKey && e.key.toUpperCase() === 'U')) {
-            e.preventDefault();
-            declencherSecurite("Raccourci clavier bloqué");
-            return false;
-        }
-    });
-
-    const thresholdWidth = 160;
-    const thresholdHeight = 160;
-    setInterval(function() {
-        if (protectionDeclenchee) return;
-        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        if (!isMobile) {
-            const widthMismatch = window.outerWidth - window.innerWidth > thresholdWidth;
-            const heightMismatch = window.outerHeight - window.innerHeight > thresholdHeight;
-            if (widthMismatch || heightMismatch) declencherSecurite("Ouverture des DevTools (redimensionnement)");
-        }
-    }, 1000);
-
-    const perfThreshold = 140;
-    setInterval(function() {
-        if (protectionDeclenchee) return;
-        const start = performance.now();
-        debugger;
-        const end = performance.now();
-        if (end - start > perfThreshold) declencherSecurite("Débogage actif détecté");
-    }, 1500);
-})();
-</script>
 </body>
 </html>
