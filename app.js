@@ -4133,7 +4133,7 @@ function isPwaInstalled() {
    fallback, mises à jour, et installation manuelle iOS/Firefox.
    ═══════════════════════════════════════════════════════════ */
 
-let deferredPrompt = null;
+
 
 function isPwaInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches
