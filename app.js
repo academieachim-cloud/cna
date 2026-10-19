@@ -4130,7 +4130,17 @@ function isPwaInstalled() {
 function initPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').catch(err => console.warn('[PWA] Erreur SW:', err));
+      // Dans app.js, à l'intérieur de la fonction initPWA()
+
+navigator.serviceWorker.register('/cna/sw.js', { 
+    scope: '/cna/' 
+})
+.then(registration => {
+    console.log('✅ SW cna enregistré avec succès, scope:', registration.scope);
+})
+.catch(err => {
+    console.error('❌ Erreur enregistrement SW cna:', err);
+});
     });
   }
   window.addEventListener('beforeinstallprompt', (e) => {
