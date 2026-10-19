@@ -3,7 +3,6 @@
   "short_name": "Cahier ACHIM",
   "description": "Le cahier numérique universel, frugal et résilient pour toutes les écoles.",
   "lang": "fr",
-  "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -33,29 +32,23 @@
       "purpose": "any"
     },
     {
-  "src": "icons/android-chrome-192x192.png",
-  "sizes": "192x192",
-  "type": "image/png",
-  "purpose": "any"
-},
-{
-  "src": "icons/android-chrome-512x512.png",
-  "sizes": "512x512",
-  "type": "image/png",
-  "purpose": "any"
-},
-{
-  "src": "icons/maskable-192x192.png",
-  "sizes": "192x192",
-  "type": "image/png",
-  "purpose": "maskable"
-},
-{
-  "src": "icons/maskable-512x512.png",
-  "sizes": "512x512",
-  "type": "image/png",
-  "purpose": "maskable"
-}
+      "src": "icons/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
   ],
   "shortcuts": [
     {
