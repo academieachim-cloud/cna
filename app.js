@@ -4127,61 +4127,255 @@ let deferredPrompt = null;
 function isPwaInstalled() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
-function initPWA() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      // Dans app.js, à l'intérieur de la fonction initPWA()
+/* ═══════════════════════════════════════════════════════════
+   28. PWA — Service Worker + Installation
+   Version robuste : gère readyState, scope explicite,
+   fallback, mises à jour, et installation manuelle iOS/Firefox.
+   ═══════════════════════════════════════════════════════════ */
 
-navigator.serviceWorker.register('/cna/sw.js', { 
-    scope: '/cna/' 
-})
-.then(registration => {
-    console.log('✅ SW cna enregistré avec succès, scope:', registration.scope);
-})
-.catch(err => {
-    console.error('❌ Erreur enregistrement SW cna:', err);
-});
-    });
+let deferredPrompt = null;
+
+function isPwaInstalled() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true
+      || document.referrer.includes('android-app://');
+}
+
+/* Détecte le sous-répertoire de l'app (ex: /cna/ ou /cahier-achim/)
+   Permet au SW de s'enregistrer correctement quel que soit le déploiement. */
+function getAppBasePath() {
+  // Si l'URL contient /cna/, on prend /cna/, sinon on prend le répertoire du script
+  const path = location.pathname;
+  if (path.includes('/cna/')) return '/cna/';
+  if (path.includes('/cahier-achim/')) return '/cahier-achim/';
+  // Fallback : répertoire courant (avec slash final)
+  const dir = path.substring(0, path.lastIndexOf('/') + 1);
+  return dir || '/';
+}
+
+function initPWA() {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('[PWA] ❌ Service Worker non supporté par ce navigateur');
+    return;
   }
+
+  const basePath = getAppBasePath();
+  const swUrl = basePath + 'sw.js';
+  console.log('[PWA] Base path :', basePath);
+  console.log('[PWA] SW URL    :', swUrl);
+
+  /* ─────────────────────────────────────────────
+     Enregistrement du Service Worker
+     ───────────────────────────────────────────── */
+  const registerSW = async () => {
+    try {
+      const reg = await navigator.serviceWorker.register(swUrl, {
+        scope: basePath,
+        updateViaCache: 'none'
+      });
+      console.log('[PWA] ✅ SW enregistré :', reg.scope);
+
+      // Suivi du cycle de vie
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        console.log('[PWA] 🔄 Nouveau SW détecté');
+        newWorker?.addEventListener('statechange', () => {
+          console.log('[PWA]    state :', newWorker.state);
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Une mise à jour est prête
+            if (typeof showToast === 'function') {
+              showToast('🔄', 'Mise à jour disponible — recharge la page');
+            }
+          }
+        });
+      });
+    } catch (err) {
+      console.error('[PWA] ❌ Échec enregistrement SW :', err);
+      console.error('     name    :', err.name);
+      console.error('     message :', err.message);
+      // Fallback : essayer avec chemin relatif
+      try {
+        const reg2 = await navigator.serviceWorker.register('./sw.js', { scope: basePath });
+        console.log('[PWA] ✅ SW enregistré (fallback relatif) :', reg2.scope);
+      } catch (err2) {
+        console.error('[PWA] ❌ Fallback aussi échoué :', err2);
+      }
+    }
+  };
+
+  // ⚠️ CRUCIAL : si readyState est déjà 'complete', le 'load' ne se déclenchera jamais
+  if (document.readyState === 'complete') {
+    registerSW();
+  } else {
+    window.addEventListener('load', registerSW, { once: true });
+  }
+
+  /* ─────────────────────────────────────────────
+     Écoute des messages du SW
+     ───────────────────────────────────────────── */
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'SW_ACTIVATED') {
+      console.log('[PWA] ✅ SW actif, version', data.version);
+      // Si la page n'est pas encore contrôlée, on recharge une seule fois
+      if (!navigator.serviceWorker.controller) {
+        console.log('[PWA] 🔄 Rechargement pour obtenir le contrôle...');
+        // Éviter une boucle infinie
+        const reloaded = sessionStorage.getItem('pwa-reloaded-for-control');
+        if (!reloaded) {
+          sessionStorage.setItem('pwa-reloaded-for-control', '1');
+          setTimeout(() => location.reload(), 500);
+        }
+      }
+    }
+  });
+
+  /* ─────────────────────────────────────────────
+     Changement de contrôleur (mise à jour appliquée)
+     ───────────────────────────────────────────── */
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    console.log('[PWA] 🔄 controllerchange — nouveau contrôleur :',
+      navigator.serviceWorker.controller?.scriptURL);
+    // Nettoyer le flag de reload pour les prochaines mises à jour
+    sessionStorage.removeItem('pwa-reloaded-for-control');
+  });
+
+  /* ─────────────────────────────────────────────
+     beforeinstallprompt — bouton d'installation
+     ───────────────────────────────────────────── */
   window.addEventListener('beforeinstallprompt', (e) => {
-    if (isPwaInstalled()) return;
+    console.log('[PWA] 🎉 beforeinstallprompt reçu');
+    if (isPwaInstalled()) {
+      console.log('[PWA] Déjà installé, on ignore');
+      return;
+    }
     e.preventDefault();
     deferredPrompt = e;
-    showInstallButton();
+    // Attendre que le DOM soit prêt avant d'afficher le bouton
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', showInstallButton, { once: true });
+    } else {
+      showInstallButton();
+    }
   });
+
+  /* ─────────────────────────────────────────────
+     Installation effectuée
+     ───────────────────────────────────────────── */
   window.addEventListener('appinstalled', () => {
+    console.log('[PWA] ✅ Application installée');
     const btn = document.getElementById('btnInstallPwa');
     if (btn) btn.remove();
     deferredPrompt = null;
+    if (typeof showToast === 'function') showToast('📱', 'Application installée !');
   });
+
+  /* ─────────────────────────────────────────────
+     Statut en ligne / hors ligne
+     ───────────────────────────────────────────── */
   window.addEventListener('online', () => {
-    const offlineBadge = document.getElementById('offlineBadge');
-    if (offlineBadge) offlineBadge.classList.remove('show');
+    console.log('[PWA] 📡 En ligne');
+    document.getElementById('offlineBadge')?.classList.remove('show');
   });
+
   window.addEventListener('offline', () => {
-    const offlineBadge = document.getElementById('offlineBadge');
-    if (offlineBadge) offlineBadge.classList.add('show');
+    console.log('[PWA] 📡 Hors ligne');
+    document.getElementById('offlineBadge')?.classList.add('show');
   });
+
   if (!navigator.onLine) {
-    const offlineBadge = document.getElementById('offlineBadge');
-    if (offlineBadge) offlineBadge.classList.add('show');
+    document.getElementById('offlineBadge')?.classList.add('show');
+  }
+
+  /* ─────────────────────────────────────────────
+     Affichage du bouton d'installation
+     (gère Chrome/Edge natif + fallback iOS/Firefox/Safari)
+     ───────────────────────────────────────────── */
+  function showInstallButton() {
+    if (document.getElementById('btnInstallPwa')) return;
+    if (isPwaInstalled()) return;
+
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    const isFirefox = /Firefox/.test(ua);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
+
+    const btn = document.createElement('button');
+    btn.id = 'btnInstallPwa';
+    btn.setAttribute('aria-label', "Installer l'application");
+    btn.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 20px;
+      background: #1A3E62;
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: system-ui, sans-serif;
+    `;
+
+    if (isIOS) {
+      btn.innerHTML = '⬇️ Installer (iOS)';
+      btn.onclick = () => {
+        alert(
+          'Sur iPhone / iPad :\n\n' +
+          '1. Touche le bouton Partager ⎋\n' +
+          '2. Choisis « Sur l\'écran d\'accueil »\n' +
+          '3. Touche « Ajouter »\n\n' +
+          'L\'application apparaîtra comme une icône sur ton écran.'
+        );
+      };
+    } else if (isFirefox || isSafari || !deferredPrompt) {
+      // Fallback : navigateur sans beforeinstallprompt
+      btn.innerHTML = '⬇️ Installer';
+      btn.onclick = () => {
+        alert(
+          'Pour installer l\'application :\n\n' +
+          '• Sur Chrome / Edge : menu ⋮ → « Installer l\'application »\n' +
+          '• Sur Safari (Mac) : Fichier → « Ajouter au Dock »\n' +
+          '• Sur Firefox : n\'est pas supporté — utilise Chrome ou Edge'
+        );
+      };
+    } else {
+      // Chrome / Edge : prompt natif
+      btn.innerHTML = '⬇️ Installer';
+      btn.onclick = async () => {
+        if (!deferredPrompt) {
+          console.warn('[PWA] Plus de prompt disponible');
+          return;
+        }
+        try {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          console.log('[PWA] Choix utilisateur :', outcome);
+          if (outcome === 'accepted') {
+            if (typeof showToast === 'function') showToast('📱', 'Installation en cours…');
+            btn.remove();
+          } else {
+            console.log('[PWA] Installation refusée');
+          }
+        } catch (err) {
+          console.error('[PWA] Erreur prompt :', err);
+        } finally {
+          deferredPrompt = null;
+        }
+      };
+    }
+
+    document.body.appendChild(btn);
   }
 }
-function showInstallButton() {
-  if (document.getElementById('btnInstallPwa') || isPwaInstalled()) return;
-  const btn = document.createElement('button');
-  btn.id = 'btnInstallPwa';
-  btn.innerHTML = '⬇️ ' + t('button.install');
-  btn.onclick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') { showToast('📱', t('message.success')); btn.remove(); }
-    deferredPrompt = null;
-  };
-  document.body.appendChild(btn);
-}
 
+window.addEventListener('offline', () => { console.log('📡 Offline'); });
 /* ═══════════════════════════════════════════════════════════
    29. RACCOURCIS CLAVIER
    ═══════════════════════════════════════════════════════════ */
