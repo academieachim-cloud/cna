@@ -938,31 +938,57 @@ async function handleImageFiles(files) {
   setLoading(true, t('message.processing'));
   showWorkspace();
   try {
-    const hasContent = state.pdfDoc || state.imageBitmaps.length > 0;
+    const hasContent = state.pdfDoc || (state.imageBitmaps && state.imageBitmaps.length > 0);
     let mode = 'replace';
-    if (hasContent) { mode = await askMode(files.length); if (!mode) { setLoading(false); return; } }
+    
+    // Si des pages existent déjà, on demande à l'utilisateur s'il veut AJOUTER ou REMPLACER
+    if (hasContent) { 
+      mode = await askMode(files.length); 
+      if (!mode) { setLoading(false); return; } // Si l'utilisateur clique sur Annuler
+    }
+
+    // 1. Si on choisit de remplacer, on remet tout à zéro proprement
     if (mode === 'replace') {
-      state.pdfDoc = null; state.imageBitmaps = []; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
+      state.pdfDoc = null; 
+      state.imageBitmaps = []; 
+      state.drawData = {}; 
+      state.bgData = {}; 
+      state.currentPage = 1;
       state.source = { type: 'images', pdfBlob: null, pdfName: '', images: [] };
       state.currentWorkId = null;
     }
+
+    // 2. Traitement et ajout des nouvelles images (que ce soit en mode "remplacer" ou "ajouter")
     for (let i = 0; i < files.length; i++) {
       const progressBar = document.getElementById('progressBar');
       if (progressBar) progressBar.style.width = Math.round((i / files.length) * 100) + '%';
+      
       let dataURL = await readAsDataURL(files[i]);
       dataURL = await compressImage(dataURL, 1600, files[i].size > 1.5 * 1024 * 1024 ? 0.75 : 0.85);
       const bmp = await loadImageFromDataURL(dataURL);
+      
+      if (!state.imageBitmaps) state.imageBitmaps = [];
+      if (!state.source.images) state.source.images = [];
+
       state.imageBitmaps.push(bmp);
       state.source.images.push({ dataURL, width: bmp.width, height: bmp.height });
     }
+
     state.source.type = 'images';
     state.fileHash = (state.fileHash || '') + '_img_' + Date.now();
-    state.numPages = state.pdfDoc ? state.pdfDoc.numPages + state.imageBitmaps.length : state.imageBitmaps.length;
+    
+    // Calcul précis du nombre total de pages (PDF éventuel + toutes les images accumulées)
+    const pdfCount = (state.pdfDoc && state.pdfDoc.numPages) ? state.pdfDoc.numPages : 0;
+    state.numPages = pdfCount + state.imageBitmaps.length;
+
     await renderAllPages();
     updatePageInfo();
     showToast('🖼️', t('message.imagesAdded'));
-  } catch (err) { alert(t('message.error') + ' : ' + err.message); }
-  finally { setLoading(false); }
+  } catch (err) { 
+    alert(t('message.error') + ' : ' + err.message); 
+  } finally { 
+    setLoading(false); 
+  }
 }
 function askMode(count) {
   return new Promise((resolve) => {
