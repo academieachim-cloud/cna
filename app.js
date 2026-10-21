@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   CAHIER NUMÉRIQUE ACHIM v4.1
+   CAHIER NUMÉRIQUE ACHIM v4.5
    Application universelle, frugale et résiliente
    - i18n complet
    - Corrections de syntaxe (guide, history, url, library)
@@ -37,14 +37,19 @@ const I18N = {
 
   async load(lang) {
     if (this.cache[lang]) return this.cache[lang];
+    // Traductions embarquées (locales.js) : fonctionne aussi en ouvrant index.html directement (file://)
+    if (window.__LOCALES__ && window.__LOCALES__[lang]) { this.cache[lang] = window.__LOCALES__[lang]; return this.cache[lang]; }
     try {
-      const response = await fetch(`./locales/${lang}.json`);
+      // Chemin normal ./locales/xx.json, puis repli ./xx.json si le dossier locales/ est absent
+      let response = await fetch(`./locales/${lang}.json`).catch(() => null);
+      if (!response || !response.ok) response = await fetch(`./${lang}.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
       this.cache[lang] = data;
       return data;
     } catch (err) {
       console.warn(`⚠️ Impossible de charger ${lang}.json, fallback fr`);
+      if (location.protocol === 'file:') console.warn('⚠️ Page ouverte en file:// : les navigateurs bloquent le chargement des traductions. Utilise un serveur (http://localhost ou HTTPS).');
       if (lang !== 'fr') return this.load('fr');
       return {};
     }
@@ -262,7 +267,7 @@ SplashScreen.init();
 window.INSTITUTION = {
   nom: 'École ACHIM',
   produit: 'Cahier Numérique ACHIM',
-  version: '4.1',
+  version: '4.5',
   anneeScolaire: '2025-2026',
   email: 'academie.achim@gmail.com',
   siteWeb: 'https://academieachim-cloud.github.io/cahier-achim/',
@@ -343,7 +348,7 @@ const EMAILJS_CONFIG = {
    2. ÉTAT GLOBAL
    ═══════════════════════════════════════════════════════════ */
 const state = {
-  pdfDoc: null, imageBitmaps: [], numPages: 0, currentPage: 1,
+  pdfDoc: null, imageBitmaps: [], pageOrder: null, numPages: 0, currentPage: 1,
   scale: 1.6, zoom: 1, tool: 'pen', color: '#000000', size: 5,
   bgMode: 'none', twoPages: false, selectedSticker: '⭐',
   drawData: {}, bgData: {}, activeStroke: null,
@@ -414,7 +419,11 @@ function setLoading(show, text) {
 function showToast(emoji, msg) {
   const toast = document.getElementById('toast');
   if (!toast) return;
-  toast.innerHTML = `${emoji}<small>${msg}</small>`;
+  toast.textContent = '';
+  toast.append(document.createTextNode(String(emoji)));
+  const small = document.createElement('small');
+  small.textContent = String(msg);
+  toast.appendChild(small);
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 1500);
 }
@@ -901,7 +910,7 @@ function initPdfLoader() {
     showWorkspace();
     try {
       const buf = await file.arrayBuffer();
-      state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+      state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise; state.pageOrder = null; state.imageBitmaps = [];
       state.numPages = state.pdfDoc.numPages;
       state.fileHash = file.name + '_' + file.size;
       state.source = { type: 'pdf', pdfName: file.name, pdfBlob: file, images: [] };
@@ -942,7 +951,7 @@ async function handleImageFiles(files) {
     let mode = 'replace';
     if (hasContent) { mode = await askMode(files.length); if (!mode) { setLoading(false); return; } }
     if (mode === 'replace') {
-      state.pdfDoc = null; state.imageBitmaps = []; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
+      state.pdfDoc = null; state.imageBitmaps = []; state.pageOrder = null; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
       state.source = { type: 'images', pdfBlob: null, pdfName: '', images: [] };
       state.currentWorkId = null;
     }
@@ -1026,38 +1035,8 @@ function makePageContainer(pageNum, w, h) {
 
   return container;
 }
-async function renderPdfPages() {
-  const viewer = document.getElementById('viewer');
-  viewer.innerHTML = '';
-  state.renderedPages.clear();
-  for (let i = 1; i <= state.pdfDoc.numPages; i++) {
-    const page = await state.pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale: state.scale });
-    viewer.appendChild(makePageContainer(i, viewport.width, viewport.height));
-  }
-  setupLazyRendering();
-  await ensurePageRendered(1);
-  finalizeAllPages();
-}
-async function renderImagePages() {
-  const viewer = document.getElementById('viewer');
-  viewer.innerHTML = '';
-  state.renderedPages.clear();
-  state.imageBitmaps.forEach((bmp, idx) => {
-    const pageNum = idx + 1;
-    const w = bmp.width, h = bmp.height;
-    const container = makePageContainer(pageNum, w, h);
-    const canvas = container.querySelector('.pdf-canvas');
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(bmp.img, 0, 0, w, h);
-    viewer.appendChild(container);
-    state.renderedPages.add(pageNum);
-  });
-  state.numPages = state.imageBitmaps.length;
-  finalizeAllPages();
-}
+async function renderPdfPages() { return renderAllPages(); }
+async function renderImagePages() { return renderAllPages(); }
 async function renderBlankPages(n) {
   const viewer = document.getElementById('viewer');
   viewer.innerHTML = '';
@@ -1071,32 +1050,94 @@ async function renderBlankPages(n) {
   }
   finalizeAllPages();
 }
+/* Ordre des pages : state.pageOrder[n-1] = { t: 'pdf'|'img', i: index dans sa source } */
+function ensurePageOrder() {
+  const pdfN = state.pdfDoc ? state.pdfDoc.numPages : 0, imgN = state.imageBitmaps.length;
+  let o = Array.isArray(state.pageOrder)
+    ? state.pageOrder.filter(x => x && ((x.t === 'pdf' && x.i >= 0 && x.i < pdfN) || (x.t === 'img' && x.i >= 0 && x.i < imgN)))
+    : null;
+  if (!o) { o = []; for (let i = 0; i < pdfN; i++) o.push({ t: 'pdf', i }); }
+  const have = new Set(o.filter(x => x.t === 'img').map(x => x.i));
+  for (let i = 0; i < imgN; i++) if (!have.has(i)) o.push({ t: 'img', i });
+  state.pageOrder = o;
+  return o;
+}
 async function renderAllPages() {
   const viewer = document.getElementById('viewer');
   viewer.innerHTML = '';
   state.renderedPages.clear();
-  if (state.pdfDoc) {
-    for (let i = 1; i <= state.pdfDoc.numPages; i++) {
-      const page = await state.pdfDoc.getPage(i);
+  const order = ensurePageOrder();
+  for (let n = 1; n <= order.length; n++) {
+    const it = order[n - 1];
+    if (it.t === 'pdf') {
+      const page = await state.pdfDoc.getPage(it.i + 1);
       const viewport = page.getViewport({ scale: state.scale });
-      viewer.appendChild(makePageContainer(i, viewport.width, viewport.height));
+      viewer.appendChild(makePageContainer(n, viewport.width, viewport.height));
+    } else {
+      const bmp = state.imageBitmaps[it.i];
+      const w = bmp.width, h = bmp.height;
+      const container = makePageContainer(n, w, h);
+      const canvas = container.querySelector('.pdf-canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(bmp.img, 0, 0, w, h);
+      viewer.appendChild(container);
+      state.renderedPages.add(n);
     }
   }
-  const pdfCount = state.pdfDoc ? state.pdfDoc.numPages : 0;
-  state.imageBitmaps.forEach((bmp, idx) => {
-    const pageNum = pdfCount + idx + 1;
-    const w = bmp.width, h = bmp.height;
-    const container = makePageContainer(pageNum, w, h);
-    const ctx = container.querySelector('.pdf-canvas').getContext('2d');
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
-    ctx.drawImage(bmp.img, 0, 0, w, h);
-    viewer.appendChild(container);
-    state.renderedPages.add(pageNum);
-  });
-  state.numPages = pdfCount + state.imageBitmaps.length;
-  if (state.pdfDoc) { setupLazyRendering(); await ensurePageRendered(1); }
+  state.numPages = order.length;
+  if (state.currentPage > order.length) state.currentPage = Math.max(1, order.length);
+  if (order.some(x => x.t === 'pdf')) { setupLazyRendering(); await ensurePageRendered(1); }
   finalizeAllPages();
   updatePageInfo();
+}
+
+/* Déplacer / supprimer une page (PDF ou image) */
+function swapPageData(a, b) {
+  for (const key of ['drawData', 'bgData']) {
+    const o = state[key] || (state[key] = {});
+    const ta = o[a], tb = o[b];
+    if (tb === undefined) delete o[a]; else o[a] = tb;
+    if (ta === undefined) delete o[b]; else o[b] = ta;
+  }
+}
+function resetPageHistory() { state.globalHistory = []; state.globalHistoryIndex = -1; }
+async function movePage(n, dir) {
+  const o = ensurePageOrder(), m = n + dir;
+  if (m < 1 || m > o.length) return;
+  [o[n - 1], o[m - 1]] = [o[m - 1], o[n - 1]];
+  swapPageData(n, m);
+  resetPageHistory();
+  state.currentPage = m;
+  await renderAllPages();
+  gotoPage(m);
+  scheduleSave();
+  buildThumbnails();
+  showToast('↕️', t('page.moved'));
+}
+async function deletePageAt(n) {
+  const o = ensurePageOrder();
+  if (o.length <= 1) { showToast('⚠️', t('page.lastOne')); return; }
+  if (!confirm(t('page.confirmDelete', { n }))) return;
+  const it = o.splice(n - 1, 1)[0];
+  if (it.t === 'img') {
+    state.imageBitmaps.splice(it.i, 1);
+    state.source.images.splice(it.i, 1);
+    o.forEach(x => { if (x.t === 'img' && x.i > it.i) x.i--; });
+  }
+  for (const key of ['drawData', 'bgData']) {
+    const d = state[key] || (state[key] = {});
+    for (let k = n; k <= o.length; k++) { if (d[k + 1] === undefined) delete d[k]; else d[k] = d[k + 1]; }
+    delete d[o.length + 1];
+  }
+  resetPageHistory();
+  state.currentPage = Math.min(n, o.length);
+  await renderAllPages();
+  gotoPage(state.currentPage);
+  scheduleSave();
+  buildThumbnails();
+  showToast('🗑️', t('page.deleted'));
 }
 let lazyObserver = null;
 function setupLazyRendering() {
@@ -1116,12 +1157,13 @@ function setupLazyRendering() {
 }
 async function ensurePageRendered(pageNum) {
   if (state.renderedPages.has(pageNum)) return;
-  if (!state.pdfDoc || pageNum > state.pdfDoc.numPages) return;
+  const srcItem = (state.pageOrder || [])[pageNum - 1];
+  if (!state.pdfDoc || !srcItem || srcItem.t !== 'pdf') return;
   const viewer = document.getElementById('viewer');
   const container = viewer.querySelector(`.page-container[data-page="${pageNum}"]`);
   if (!container) return;
   try {
-    const page = await state.pdfDoc.getPage(pageNum);
+    const page = await state.pdfDoc.getPage(srcItem.i + 1);
     const viewport = page.getViewport({ scale: state.scale });
     const canvas = container.querySelector('.pdf-canvas');
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
@@ -1900,7 +1942,7 @@ function openClipPicker() {
       }
       grid.innerHTML = state.customClips.map((c, i) => `
         <div class="clip-pack-item custom" data-custom-index="${i}">
-          <img src="${c.src}" alt="${escapeHtml(c.name)}">
+          <img src="${safeImgSrc(c.src)}" alt="${escapeHtml(c.name)}">
           <div class="clip-name">${escapeHtml(c.name)}</div>
           <button class="clip-del" data-del-index="${i}" title="${t('action.delete')}">✕</button>
         </div>
@@ -2119,7 +2161,7 @@ function startScissorsFromCustom() {
   const grid = modal.querySelector('#scissorsGrid');
   grid.innerHTML = state.customClips.map((c, i) => `
     <div class="clip-pack-item" data-index="${i}">
-      <img src="${c.src}" alt="${escapeHtml(c.name)}">
+      <img src="${safeImgSrc(c.src)}" alt="${escapeHtml(c.name)}">
       <div class="clip-name">${escapeHtml(c.name)}</div>
     </div>`).join('');
   grid.querySelectorAll('.clip-pack-item').forEach(item => {
@@ -3098,20 +3140,26 @@ function scheduleSave() {
 function saveLocalAuto() {
   try {
     const data = {
-      version: 7, drawData: state.drawData, bgData: state.bgData,
+      version: 7, drawData: state.drawData, bgData: state.bgData, pageOrder: state.pageOrder,
       currentPage: state.currentPage, fileHash: state.fileHash,
       numPages: state.numPages, student: state.student,
       subject: state.subject, workName: state.workName,
       source: { type: state.source.type, pdfName: state.source.pdfName, images: state.source.images.slice(0, 5) },
       savedAt: Date.now()
     };
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    try {
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+    } catch (qe) {
+      data.source.images = []; data.reduced = true;
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data));
+      showToast('⚠️', t('save.quotaWarning'));
+    }
     const saveBadge = document.getElementById('saveBadge');
     if (saveBadge) {
       saveBadge.classList.add('show');
       setTimeout(() => saveBadge.classList.remove('show'), 1200);
     }
-  } catch (e) { console.warn('Autosave failed:', e); }
+  } catch (e) { console.warn('Autosave failed:', e); showToast('⚠️', t('save.quotaWarning')); }
 }
 function loadAutoSave() {
   try {
@@ -3138,11 +3186,12 @@ async function restoreAutoSave(autosave) {
     state.workName = autosave.workName || '';
     updateProfileBtn(); updateSubjectBadge();
     if (autosave.source?.type === 'images' && autosave.source.images?.length) {
-      state.imageBitmaps = []; state.source.images = [];
+      state.imageBitmaps = []; state.pageOrder = null; state.source.images = [];
       for (const im of autosave.source.images) {
         const bmp = await loadImageFromDataURL(im.dataURL);
         state.imageBitmaps.push(bmp); state.source.images.push(im);
       }
+      state.pageOrder = autosave.pageOrder || null;
       await renderImagePages();
     } else if (autosave.source?.type === 'pdf') {
       if (confirm(t('save.pdf'))) { document.getElementById('fileInput').click(); return; }
@@ -3197,6 +3246,7 @@ async function saveToHistory() {
       currentPage: state.currentPage,
       drawData: state.drawData,
       bgData: state.bgData,
+      pageOrder: state.pageOrder,
       sessionDuration: Date.now() - state.sessionStart,
       stats: computeStats(),
       source: { type: state.source.type, pdfName: state.source.pdfName, pdfBlob, images: state.source.images }
@@ -3216,7 +3266,7 @@ async function saveAsCahier() {
       version: 7, createdAt: Date.now(), achim: true,
       student: state.student, subject: state.subject, workName: state.workName,
       numPages: state.numPages, currentPage: state.currentPage,
-      drawData: state.drawData, bgData: state.bgData,
+      drawData: state.drawData, bgData: state.bgData, pageOrder: state.pageOrder,
       source: { type: state.source.type, pdfName: state.source.pdfName, pdfBase64, images: state.source.images || [] }
     };
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
@@ -3225,12 +3275,20 @@ async function saveAsCahier() {
   } catch (err) { alert(t('message.error') + ' : ' + err.message); }
   finally { setLoading(false); }
 }
+async function restoreImages(list) {
+  state.imageBitmaps = []; state.source.images = [];
+  for (const im of (list || [])) {
+    const bmp = await loadImageFromDataURL(im.dataURL);
+    state.imageBitmaps.push(bmp); state.source.images.push(im);
+  }
+}
 async function loadWorkFile(file) {
   setLoading(true, t('message.loading'));
   try {
     const text = await file.text();
     const data = JSON.parse(text);
-    if (!data.version || !data.drawData) throw new Error('Invalid file');
+    if (file.size > 100 * 1024 * 1024) throw new Error('File too large');
+    if (!data || typeof data !== 'object' || Array.isArray(data) || !data.version || typeof data.drawData !== 'object') throw new Error('Invalid file');
     showWorkspace();
     state.drawData = data.drawData || {};
     state.bgData = data.bgData || {};
@@ -3245,18 +3303,19 @@ async function loadWorkFile(file) {
       const bin = atob(data.source.pdfBase64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      state.pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
+      state.pdfDoc = await pdfjsLib.getDocument({ data: bytes }).promise; state.pageOrder = null; state.imageBitmaps = [];
       state.numPages = state.pdfDoc.numPages;
       state.source.type = 'pdf'; state.source.pdfName = data.source.pdfName;
+      await restoreImages(data.source.images); state.pageOrder = data.pageOrder || null;
       state.fileHash = file.name;
       await renderPdfPages();
     } else if (data.source?.images?.length) {
-      state.imageBitmaps = []; state.source.images = [];
+      state.imageBitmaps = []; state.pageOrder = null; state.source.images = [];
       for (const im of data.source.images) {
         const bmp = await loadImageFromDataURL(im.dataURL);
         state.imageBitmaps.push(bmp); state.source.images.push(im);
       }
-      state.source.type = 'images'; state.numPages = state.imageBitmaps.length;
+      state.source.type = 'images'; state.numPages = state.imageBitmaps.length; state.pageOrder = data.pageOrder || null;
       state.fileHash = file.name;
       await renderImagePages();
     } else {
@@ -3392,19 +3451,20 @@ async function resumeFromHistory(id) {
     updateProfileBtn(); updateSubjectBadge();
     if (work.source?.pdfBlob) {
       const buf = await work.source.pdfBlob.arrayBuffer();
-      state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+      state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise; state.pageOrder = null; state.imageBitmaps = [];
       state.numPages = state.pdfDoc.numPages;
       state.source.type = 'pdf'; state.source.pdfName = work.source.pdfName;
+      await restoreImages(work.source.images); state.pageOrder = work.pageOrder || null;
       state.source.pdfBlob = work.source.pdfBlob;
       state.fileHash = 'history_' + id;
       await renderPdfPages();
     } else if (work.source?.images?.length) {
-      state.imageBitmaps = []; state.source.images = [];
+      state.imageBitmaps = []; state.pageOrder = null; state.source.images = [];
       for (const im of work.source.images) {
         const bmp = await loadImageFromDataURL(im.dataURL);
         state.imageBitmaps.push(bmp); state.source.images.push(im);
       }
-      state.source.type = 'images'; state.numPages = state.imageBitmaps.length;
+      state.source.type = 'images'; state.numPages = state.imageBitmaps.length; state.pageOrder = work.pageOrder || null;
       state.fileHash = 'history_' + id;
       await renderImagePages();
     } else {
@@ -3486,7 +3546,7 @@ async function loadFromUrl(rawUrl) {
 }
 async function openPdfFromBlob(blob, name) {
   const buf = await blob.arrayBuffer();
-  state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+  state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise; state.pageOrder = null; state.imageBitmaps = [];
   state.numPages = state.pdfDoc.numPages;
   state.fileHash = 'url_' + name + '_' + buf.byteLength;
   state.source = { type: 'pdf', pdfName: name, pdfBlob: blob, images: [] };
@@ -3500,7 +3560,7 @@ async function openImageFromBlob(blob, url) {
   const dataURL = await blobToDataURL(blob);
   const compressed = await compressImage(dataURL, 1600, 0.85);
   const bmp = await loadImageFromDataURL(compressed);
-  state.pdfDoc = null; state.imageBitmaps = []; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
+  state.pdfDoc = null; state.imageBitmaps = []; state.pageOrder = null; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
   state.source = { type: 'images', pdfBlob: null, pdfName: '', images: [] };
   state.imageBitmaps.push(bmp);
   state.source.images.push({ dataURL: compressed, width: bmp.width, height: bmp.height });
@@ -3663,7 +3723,17 @@ function initShare() {
       qrDiv.innerHTML = `<p style="color:#e74c3c">${t('share.tooLong')}</p>`;
       return;
     }
-    qrDiv.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" alt="QR">`;
+    if (typeof qrcode === 'function') {
+      const qr = qrcode(0, 'L'); qr.addData(url); qr.make();
+      qrDiv.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+      return;
+    }
+    if (!confirm(t('share.qrExternalConfirm'))) return;
+    const img = document.createElement('img');
+    img.alt = 'QR';
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
+    qrDiv.textContent = '';
+    qrDiv.appendChild(img);
   };
 }
 function generateShareLink() {
@@ -3731,13 +3801,41 @@ async function tryLoadSharedLink() {
 /* ═══════════════════════════════════════════════════════════
    23. VERROU PARENTAL
    ═══════════════════════════════════════════════════════════ */
+function safeImgSrc(src) {
+  return (typeof src === 'string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(src)) ? src : '';
+}
+
 const PIN_KEY = 'cahier-achim-parental-pin';
 let pendingParentalAction = null;
 
 function getParentalPin() { return localStorage.getItem(PIN_KEY); }
+async function hashPin(pin, salt) {
+  const data = new TextEncoder().encode(salt + ':' + pin);
+  if (window.crypto && crypto.subtle) {
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+  let h = 5381; // repli (contexte non sécurisé http) : moins robuste
+  for (let i = 0; i < 5000; i++) for (const b of data) h = ((h << 5) + h + b) >>> 0;
+  return 'w' + h.toString(16);
+}
+async function setParentalPin(pin) {
+  const salt = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('');
+  localStorage.setItem(PIN_KEY, 'v2:' + salt + ':' + await hashPin(pin, salt));
+}
+async function verifyParentalPin(pin) {
+  const stored = getParentalPin();
+  if (!stored) return false;
+  if (!stored.startsWith('v2:')) { // ancien PIN en clair → migration
+    if (pin === stored) { await setParentalPin(pin); return true; }
+    return false;
+  }
+  const [, salt, hash] = stored.split(':');
+  return (await hashPin(pin, salt)) === hash;
+}
 function isParentalLocked() { return document.body.classList.contains('parental-lock-on'); }
 function initParentalLock() {
-  document.getElementById('btnParentalLock').onclick = () => {
+  document.getElementById('btnParentalLock').onclick = async () => {
     if (getParentalPin()) {
       const isOn = isParentalLocked();
       askParentalPin((ok) => {
@@ -3755,14 +3853,14 @@ function initParentalLock() {
     } else {
       const pin = prompt(t('parental.create'));
       if (!pin || !/^\d{4}$/.test(pin)) { alert(t('parental.invalid')); return; }
-      localStorage.setItem(PIN_KEY, pin);
+      await setParentalPin(pin);
       document.body.classList.add('parental-lock-on');
       showToast('🔐', t('parental.activated'));
     }
   };
-  document.getElementById('parentalConfirm').onclick = () => {
+  document.getElementById('parentalConfirm').onclick = async () => {
     const pin = document.getElementById('parentalPinInput').value.trim();
-    if (pin === getParentalPin()) {
+    if (await verifyParentalPin(pin)) {
       document.getElementById('parentalLockModal').style.display = 'none';
       pendingParentalAction?.(true);
     } else {
@@ -3814,7 +3912,7 @@ async function processSmartScan(dataURL) {
     let mode = 'replace';
     if (hasContent) { mode = await askMode(1); if (!mode) return; }
     if (mode === 'replace') {
-      state.pdfDoc = null; state.imageBitmaps = []; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
+      state.pdfDoc = null; state.imageBitmaps = []; state.pageOrder = null; state.drawData = {}; state.bgData = {}; state.currentPage = 1;
       state.source = { type: 'images', pdfBlob: null, pdfName: '', images: [] };
     }
     state.imageBitmaps.push(bmp);
@@ -4018,7 +4116,8 @@ function buildThumbnails() {
     if (i === state.currentPage) item.classList.add('active');
     const num = document.createElement('div');
     num.className = 'thumb-num';
-    num.textContent = `${t('button.pdf')} ${i}`;
+    const it = (state.pageOrder || [])[i - 1];
+    num.textContent = it && it.t === 'img' ? `🖼️ ${t('thumb.image')} ${it.i + 1}` : `📄 ${t('thumb.pdf')} ${it ? it.i + 1 : i}`;
     item.appendChild(num);
     const pdfCanvas = container.querySelector('.pdf-canvas');
     const thumbCanvas = document.createElement('canvas');
@@ -4028,6 +4127,17 @@ function buildThumbnails() {
     thumbCanvas.height = Math.round(targetWidth / ratio);
     try { thumbCanvas.getContext('2d').drawImage(pdfCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height); } catch {}
     item.appendChild(thumbCanvas);
+    if (it) {
+      const bar = document.createElement('div'); bar.className = 'thumb-actions';
+      const mk = (txt, title, fn, disabled) => {
+        const b = document.createElement('button'); b.textContent = txt; b.title = title; b.setAttribute('aria-label', title);
+        b.disabled = !!disabled; b.onclick = e => { e.stopPropagation(); fn(); }; return b;
+      };
+      bar.append(mk('▲', t('page.moveUp'), () => movePage(i, -1), i === 1),
+                 mk('▼', t('page.moveDown'), () => movePage(i, 1), i === state.numPages),
+                 mk('🗑️', t('page.delete'), () => deletePageAt(i), state.numPages <= 1));
+      item.appendChild(bar);
+    }
     item.onclick = () => {
       gotoPage(i);
       thumbList.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active'));
@@ -4153,6 +4263,116 @@ function getAppBasePath() {
   return dir || '/';
 }
 
+/* ═══════════════════════════════════════════════════════════
+   BARRE COMPACTE + BOUTONS CONTEXTUELS (v4.4)
+   - Écrans ≤ 900 px ou niveau Maternelle : outils essentiels + menus « Formes » et « Plus »
+   - Undo/redo/effacer/pages/couleurs/taille : n'apparaissent que quand ils servent
+   ═══════════════════════════════════════════════════════════ */
+const SHAPE_IDS = ['toolLine','toolCircle','toolRect','toolTriangle','toolStar','toolPentagon','toolHexagon','toolHeart','toolArrow','toolSpeech','toolMusic'];
+function initCompactToolbar() {
+  const tb = document.getElementById('toolbar');
+  const drawGroup = document.getElementById('drawToolsGroup');
+  if (!tb || !drawGroup || tb.dataset.compactInit) return;
+  tb.dataset.compactInit = '1';
+  const grp = id => document.getElementById(id)?.closest('.tool-group');
+  const pg = grp('btnPrev'); if (pg) pg.id = 'pageNavGroup';
+  const ug = grp('btnUndo'); if (ug) ug.id = 'undoGroup';
+  const moreEls = [grp('penMagic'), grp('btnSaveWork'), grp('btnUrl'),
+    tb.querySelector('label[for="fileInput"]')?.closest('.tool-group'),
+    ...['btnHistory', 'btnPresent', 'langToggle', 'themeToggle'].map(i => document.getElementById(i))].filter(Boolean);
+  const holders = moreEls.map(el => { const h = document.createComment('m'); el.before(h); return h; });
+
+  const panel = document.createElement('div'); panel.id = 'morePanel'; document.body.appendChild(panel);
+  const mkBtn = (id, cls) => { const b = document.createElement('button'); b.id = id; b.className = cls; return b; };
+  const shapesBtn = mkBtn('btnShapes', 'tool-btn'); shapesBtn.textContent = '⬡'; drawGroup.after(shapesBtn);
+  const moreBtn = mkBtn('btnMore', 'tool-btn'); moreBtn.textContent = '⋯';
+  (document.getElementById('quickActions') || tb).before(moreBtn);
+  const labels = () => {
+    shapesBtn.title = shapesBtn.ariaLabel = t('toolbar.shapes');
+    moreBtn.title = moreBtn.ariaLabel = t('toolbar.more');
+  };
+  labels(); window.addEventListener('langchange', labels);
+
+  const closePanels = () => {
+    panel.classList.remove('open'); document.body.classList.remove('shapes-open');
+    moreBtn.setAttribute('aria-expanded', 'false');
+  };
+  moreBtn.onclick = e => { e.stopPropagation(); const o = !panel.classList.contains('open'); closePanels(); if (o) { panel.classList.add('open'); moreBtn.setAttribute('aria-expanded', 'true'); } };
+  shapesBtn.onclick = e => { e.stopPropagation(); const o = !document.body.classList.contains('shapes-open'); closePanels(); document.body.classList.toggle('shapes-open', o); };
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#morePanel, #btnMore, #btnShapes')) closePanels();
+    else if (e.target.closest('#morePanel') && e.target.closest('button, label')) setTimeout(closePanels, 150);
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
+  drawGroup.addEventListener('click', e => { const b = e.target.closest('.tool-btn'); if (b && SHAPE_IDS.includes(b.id)) setTimeout(closePanels, 120); });
+
+  let compact = false;
+  const setCompact = on => {
+    if (on === compact) return; compact = on;
+    document.body.classList.toggle('tb-compact', on);
+    moreEls.forEach((el, i) => on ? panel.appendChild(el) : holders[i].after(el));
+    if (!on) closePanels();
+  };
+
+  let last = '';
+  const update = () => {
+    if (document.hidden || typeof state === 'undefined') return;
+    setCompact(window.innerWidth <= 900 || document.body.dataset.level === 'maternelle');
+    const hist = state.globalHistory || [];
+    const d = state.drawData && state.drawData[state.currentPage];
+    const cls = {
+      'can-undo': state.globalHistoryIndex >= 0,
+      'can-redo': state.globalHistoryIndex < hist.length - 1,
+      'has-strokes': !!(d && d.strokes && d.strokes.length),
+      'multi-page': state.numPages > 1
+    };
+    const key = JSON.stringify(cls) + '|' + state.tool;
+    if (key === last) return; last = key;
+    Object.entries(cls).forEach(([k, v]) => document.body.classList.toggle(k, v));
+    document.body.dataset.activeTool = state.tool || '';
+    const cur = DRAW_TOOLS.find(x => x.tool === state.tool && SHAPE_IDS.includes(x.id));
+    shapesBtn.textContent = cur ? cur.emoji : '⬡';
+    shapesBtn.classList.toggle('active', !!cur);
+  };
+  setInterval(update, 300); window.addEventListener('resize', update); update();
+
+  // Hauteurs réelles des barres → positions des éléments fixes (plus de chevauchement sur téléphone)
+  const pb = document.getElementById('pedagoBar');
+  const ro = new ResizeObserver(() => {
+    const r = document.documentElement.style;
+    r.setProperty('--tb-h', tb.offsetHeight + 'px');
+    r.setProperty('--pb-h', (pb && pb.offsetHeight ? pb.offsetHeight : 0) + 'px');
+  });
+  ro.observe(tb); if (pb) ro.observe(pb);
+}
+
+function showUpdateBanner(worker) {
+  if (document.getElementById('updateBanner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'updateBanner';
+  bar.setAttribute('role', 'alert');
+  const msg = document.createElement('span');
+  msg.textContent = '🔄 ' + t('pwa.updateAvailable');
+  const btn = document.createElement('button');
+  btn.textContent = t('pwa.update');
+  btn.onclick = () => { window.__pwaUpdating = true; worker.postMessage({ type: 'SKIP_WAITING' }); };
+  bar.append(msg, btn);
+  document.body.appendChild(bar);
+}
+
+/* Raccourcis de l'icône (manifest : ?action=pdf|photo|history) */
+function handleLaunchAction() {
+  const action = new URLSearchParams(location.search).get('action');
+  if (!action) return;
+  const map = { pdf: 'label[for="fileInput"].accueil-btn', photo: 'label[for="camInput"].accueil-btn', history: '#btnHistoryHome' };
+  const el = map[action] && document.querySelector(map[action]);
+  if (!el) return;
+  if (action === 'history') { el.click(); return; }
+  el.classList.add('pulse-hint'); // un fichier ne peut s'ouvrir qu'après un geste de l'utilisateur
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  setTimeout(() => el.classList.remove('pulse-hint'), 4000);
+}
+
 function initPWA() {
   if (!('serviceWorker' in navigator)) {
     console.warn('[PWA] ❌ Service Worker non supporté par ce navigateur');
@@ -4183,9 +4403,7 @@ function initPWA() {
           console.log('[PWA]    state :', newWorker.state);
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
             // Une mise à jour est prête
-            if (typeof showToast === 'function') {
-              showToast('🔄', 'Mise à jour disponible — recharge la page');
-            }
+            showUpdateBanner(newWorker);
           }
         });
       });
@@ -4234,6 +4452,7 @@ function initPWA() {
      Changement de contrôleur (mise à jour appliquée)
      ───────────────────────────────────────────── */
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (window.__pwaUpdating) { location.reload(); return; }
     console.log('[PWA] 🔄 controllerchange — nouveau contrôleur :',
       navigator.serviceWorker.controller?.scriptURL);
     // Nettoyer le flag de reload pour les prochaines mises à jour
@@ -4600,6 +4819,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     };
 
     initPWA();
+    handleLaunchAction();
+    initCompactToolbar();
     initKeyboardShortcuts();
 
     SplashScreen.update(95, t('splash.final'));
