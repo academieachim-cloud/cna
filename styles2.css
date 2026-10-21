@@ -509,3 +509,57 @@
   }
   
   .accueil-container
+
+/* ═══ v4.3 — Accessibilité, mise à jour PWA, raccourcis ═══ */
+:focus-visible { outline: 3px solid #f4b400; outline-offset: 2px; border-radius: 4px; }
+button:focus-visible, label.tool-btn:focus-visible, .accueil-btn:focus-visible, summary:focus-visible { outline: 3px solid #f4b400; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+#updateBanner { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 100000; display: flex; gap: 12px; align-items: center; background: #1A3E62; color: #fff; padding: 12px 16px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.35); max-width: calc(100vw - 24px); }
+#updateBanner button { background: #f4b400; color: #1A3E62; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 700; cursor: pointer; min-height: 40px; }
+.pulse-hint { animation: pulseHint 1s ease-in-out 4; box-shadow: 0 0 0 4px #f4b400; }
+@keyframes pulseHint { 50% { transform: scale(1.08); } }
+
+
+/* ═══ v4.4 — Barre compacte, boutons contextuels, cibles tactiles ═══ */
+#pedagoBar, #collageBar { top: var(--tb-h, 61px); }
+#subjectBadge { top: calc(var(--tb-h, 61px) + var(--pb-h, 0px) + 8px); }
+#viewer { padding-top: calc(var(--tb-h, 61px) + var(--pb-h, 0px) + 64px); }
+
+#btnMore, #btnShapes, #morePanel { display: none; }
+body.tb-compact #btnMore, body.tb-compact #btnShapes { display: flex; }
+body.tb-compact #morePanel.open {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  position: fixed; top: var(--tb-h, 61px); left: 8px; right: 8px; max-height: 60vh; overflow: auto;
+  padding: 10px; background: var(--bg-toolbar); border-radius: 0 0 14px 14px;
+  box-shadow: 0 8px 24px var(--shadow); z-index: 101;
+}
+body.tb-compact #schoolLogo { display: none; }
+body.tb-compact #drawToolsGroup :is(#toolLine,#toolCircle,#toolRect,#toolTriangle,#toolStar,#toolPentagon,#toolHexagon,#toolHeart,#toolArrow,#toolSpeech,#toolMusic) { display: none; }
+body.tb-compact.shapes-open #drawToolsGroup :is(#toolLine,#toolCircle,#toolRect,#toolTriangle,#toolStar,#toolPentagon,#toolHexagon,#toolHeart,#toolArrow,#toolSpeech,#toolMusic) { display: flex; }
+
+/* Boutons visibles seulement quand ils servent */
+body:not(.can-undo) #btnUndo, body:not(.can-redo) #btnRedo, body:not(.has-strokes) #btnClear { opacity: .35; pointer-events: none; }
+body.tb-compact:not(.can-undo) #btnUndo, body.tb-compact:not(.can-redo) #btnRedo, body.tb-compact:not(.has-strokes) #btnClear { display: none; }
+body.tb-compact:not(.can-undo):not(.can-redo):not(.has-strokes) #undoGroup { display: none; }
+body:not(.multi-page) #pageNavGroup { display: none; }
+body[data-active-tool="eraser"] #colorPalette, body[data-active-tool="textSelect"] #colorPalette,
+body[data-active-tool="collage"] #colorPalette, body[data-active-tool="sticker"] #colorPalette,
+body[data-active-tool="magic"] #colorPalette,
+body[data-active-tool="textSelect"] #sizePicker, body[data-active-tool="collage"] #sizePicker { display: none; }
+
+/* Cibles tactiles : 44 px en mode compact, 56 px en Maternelle ; texte ≥ 13 px */
+body.tb-compact .tool-btn, body.tb-compact .tool-btn.small, body.tb-compact .quick-btn { min-width: 44px; min-height: 44px; font-size: 18px; }
+body.tb-compact .quick-btn, body.tb-compact .pedago-btn { font-size: 13px; padding: 8px 12px; }
+body.tb-compact .color-swatch, body.tb-compact #customColor { width: 34px; height: 34px; }
+body.tb-compact .size-btn { width: 38px; height: 38px; }
+body[data-level="maternelle"] .tool-btn, body[data-level="maternelle"] .tool-btn.small, body[data-level="maternelle"] .quick-btn { min-width: 56px; min-height: 56px; font-size: 26px; }
+body[data-level="maternelle"] .color-swatch, body[data-level="maternelle"] #customColor { width: 44px; height: 44px; }
+body[data-level="maternelle"] .size-btn { width: 48px; height: 48px; }
+
+/* ═══ v4.5 — Actions de page dans les miniatures ═══ */
+.thumb-actions { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+.thumb-actions button { min-width: 40px; min-height: 40px; border: 0; border-radius: 8px; background: var(--bg-btn); color: var(--text-main); font-size: 16px; cursor: pointer; }
+.thumb-actions button:disabled { opacity: .3; cursor: default; }
+.thumb-actions button:last-child:not(:disabled):hover { background: #e74c3c; color: #fff; }
